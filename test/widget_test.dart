@@ -70,6 +70,7 @@ void main() {
     expect(find.text('Visas laikotarpis'), findsOneWidget);
     expect(find.text('Išlaidos'), findsOneWidget);
     expect(find.text('Būtina vs nebūtina'), findsOneWidget);
+    expect(find.text('Išlaidos ir pajamos per laiką'), findsOneWidget);
   });
 
   testWidgets('app loads demo household', (tester) async {
@@ -83,5 +84,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(controller.state.transactions, isNotEmpty);
     expect(find.text('Apžvalga'), findsWidgets);
+    await tester.tap(find.text('Įžvalgos').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Taupymo tikslas'), findsOneWidget);
+    expect(find.text('Mėnesio iššūkis'), findsOneWidget);
   });
 }

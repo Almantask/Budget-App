@@ -10,17 +10,25 @@ import '../banks/sync_service.dart';
 import '../data/budget_store.dart';
 import '../data/demo_data.dart';
 import '../models/bank.dart';
+import '../models/budget_limit.dart';
 import '../models/connected_account.dart';
 import '../models/filters.dart';
+import '../models/gamification.dart';
 import '../models/insight.dart';
+import '../models/notice.dart';
 import '../models/period.dart';
 import '../models/person.dart';
 import '../models/spend_tag.dart';
 import '../models/transaction.dart';
 import '../services/analytics.dart';
+import '../services/anomalies.dart';
 import '../services/csv_export.dart';
 import '../services/csv_import.dart';
+import '../services/dates.dart';
+import '../services/gamification.dart';
 import '../services/insights_engine.dart';
+import '../services/notices.dart';
+import '../services/thresholds.dart';
 
 class BudgetController extends ChangeNotifier {
   BudgetController({
@@ -42,6 +50,9 @@ class BudgetController extends ChangeNotifier {
   final csvExporter = const CsvExporter();
   final csvImporter = BankCsvImporter();
   final deduper = const Deduper();
+  final thresholds = const ThresholdEngine();
+  final games = const GameEngine();
+  final anomalyEngine = const AnomalyEngine();
 
   BudgetState state = BudgetState.empty();
   BudgetFilters filters = const BudgetFilters();
@@ -49,6 +60,7 @@ class BudgetController extends ChangeNotifier {
   BankCredentials credentials = const BankCredentials();
   bool loading = true;
   bool syncing = false;
+  bool trendWeekly = false;
   String? statusMessage;
 
   List<MoneyTx> get visibleTransactions {
@@ -89,6 +101,87 @@ class BudgetController extends ChangeNotifier {
         current: currentRange,
       );
 
+  String get viewMonth => monthKey(now());
+
+  List<ThresholdAlert> get thresholdAlerts => thresholds.collectAlerts(
+        txs: state.transactions,
+        budgets: state.budgets,
+        month: viewMonth,
+        today: now(),
+      );
+
+  List<SpendingAnomaly> get spendingAnomalies =>
+      anomalyEngine.findSpendingAnomalies(
+        txs: state.transactions,
+        viewMonth: viewMonth,
+        today: now(),
+      );
+
+  Set<String> get unusualTransactionIds => {
+        for (final item in spendingAnomalies)
+          if (item.transactionId != null) item.transactionId!,
+      };
+
+  List<MonthPoint> get trendMonths => analytics.trimSeries(
+        analytics.monthlySeries(state.transactions, viewMonth),
+      );
+
+  List<WeekPoint> get trendWeeks =>
+      analytics.weeklySeries(state.transactions, viewMonth);
+
+  MonthPoint get currentMonthPoint =>
+      analytics.monthTotals(state.transactions, viewMonth);
+
+  List<MonthPoint> get savingsHistory =>
+      analytics.fullHistory(state.transactions, viewMonth);
+
+  StretchGoal get stretchGoal =>
+      games.stretchGoalForMonth(savingsHistory, viewMonth);
+
+  List<StretchHit> get stretchHistory => games.stretchHits(savingsHistory);
+
+  List<Quest> get monthQuestList => games.monthQuests(
+        txs: state.transactions,
+        budgets: state.budgets,
+        month: viewMonth,
+        today: now(),
+        stretch: stretchGoal,
+        monthPoint: currentMonthPoint,
+        alerts: thresholdAlerts,
+      );
+
+  List<Achievement> get achievements => games.collectAchievements(
+        txs: state.transactions,
+        budgets: state.budgets,
+        today: now(),
+        history: savingsHistory,
+        hits: stretchHistory,
+      );
+
+  LevelProgress get levelProgress {
+    final uniqueDays =
+        state.transactions.map((tx) => dateKey(tx.bookedAt)).toSet().length;
+    final xp = games.computeXp(
+      transactionCount: state.transactions.where((tx) => !tx.isTransfer).length,
+      uniqueDays: uniqueDays,
+      hits: stretchHistory,
+      underBudgetMonths: games.pastUnderBudgetCount(
+        txs: state.transactions,
+        budgets: state.budgets,
+        history: savingsHistory,
+        today: now(),
+      ),
+      questsComplete: monthQuestList.where((quest) => quest.complete).length,
+      achievements: achievements,
+    );
+    return games.levelFromXp(xp);
+  }
+
+  int get loggingStreak => games.loggingStreak(state.transactions, now());
+
+  List<ThresholdNotice> get unreadNotices =>
+      state.notices.where((notice) => !notice.read).toList();
+
   Future<void> load() async {
     loading = true;
     notifyListeners();
@@ -113,10 +206,13 @@ class BudgetController extends ChangeNotifier {
       accounts: demo.accounts,
       demoLoaded: true,
       lastDailySyncAt: now(),
+      notices: const [],
+      alertSnapshot: const {},
+      budgets: state.budgets.isEmpty ? BudgetLimit.defaults : state.budgets,
     );
-    await _store.save(state);
-    statusMessage = 'Įkelti demo šeimos duomenys. Galite jungti tikrus bankus.';
-    notifyListeners();
+    await _finishLedgerChange(
+      'Įkelti demo šeimos duomenys. Galite jungti tikrus bankus.',
+    );
   }
 
   Future<void> maybeDailySync({bool force = false}) async {
@@ -153,8 +249,7 @@ class BudgetController extends ChangeNotifier {
         accounts: [...accounts, ...untouched],
         lastDailySyncAt: now(),
       );
-      await _store.save(state);
-      statusMessage = '$triggeredBy baigta.';
+      await _finishLedgerChange('$triggeredBy baigta.');
     } catch (error) {
       statusMessage = 'Sinchronizacija nepavyko: $error';
     } finally {
@@ -209,10 +304,9 @@ class BudgetController extends ChangeNotifier {
     state = state.copyWith(
       transactions: deduper.merge(state.transactions, result.transactions),
     );
-    await _store.save(state);
-    statusMessage =
-        'Importuota ${result.transactions.length} operacijų iš ${result.bank.label}.';
-    notifyListeners();
+    await _finishLedgerChange(
+      'Importuota ${result.transactions.length} operacijų iš ${result.bank.label}.',
+    );
   }
 
   Future<String?> pickAndImportCsv({
@@ -331,6 +425,84 @@ class BudgetController extends ChangeNotifier {
 
   void setQuery(String query) {
     filters = filters.copyWith(query: query);
+    notifyListeners();
+  }
+
+  void setTrendWeekly(bool weekly) {
+    trendWeekly = weekly;
+    notifyListeners();
+  }
+
+  Future<void> updateBudget({
+    required String categoryId,
+    required double monthlyLimit,
+    required double warnAt,
+  }) async {
+    final next = [...state.budgets];
+    final index = next.indexWhere((b) => b.categoryId == categoryId);
+    final clampedWarn = warnAt.clamp(0.5, 1.0).toDouble();
+    if (monthlyLimit <= 0) {
+      if (index >= 0) next.removeAt(index);
+    } else if (index >= 0) {
+      next[index] = next[index].copyWith(
+        monthlyLimit: monthlyLimit,
+        warnAt: clampedWarn,
+      );
+    } else {
+      next.add(
+        BudgetLimit(
+          id: 'b-$categoryId',
+          categoryId: categoryId,
+          monthlyLimit: monthlyLimit,
+          warnAt: clampedWarn,
+        ),
+      );
+    }
+    state = state.copyWith(budgets: next);
+    await _store.save(state);
+    notifyListeners();
+  }
+
+  Future<void> markNoticesRead() async {
+    if (state.notices.every((notice) => notice.read)) return;
+    state = state.copyWith(
+      notices: [
+        for (final notice in state.notices) notice.copyWith(read: true),
+      ],
+    );
+    await _store.save(state);
+    notifyListeners();
+  }
+
+  Future<void> _finishLedgerChange(String fallbackStatus) async {
+    final today = now();
+    final month = monthKey(today);
+    final alerts = thresholds.collectAlerts(
+      txs: state.transactions,
+      budgets: state.budgets,
+      month: month,
+      today: today,
+    );
+    final fresh = noticesAfterSync(
+      previous: state.alertSnapshot,
+      alerts: alerts,
+      month: month,
+      at: today,
+    );
+    final snapshot = Map<String, String>.from(state.alertSnapshot)
+      ..addAll(snapshotFromAlerts(month, alerts));
+    state = state.copyWith(
+      notices: [...fresh, ...state.notices].take(40).toList(),
+      alertSnapshot: snapshot,
+    );
+    await _store.save(state);
+    if (fresh.isEmpty) {
+      statusMessage = fallbackStatus;
+    } else if (fresh.length == 1) {
+      statusMessage = noticeSnackTitle(fresh.first);
+    } else {
+      statusMessage = '${fresh.length} nauji biudžeto įspėjimai.';
+    }
     notifyListeners();
   }
 

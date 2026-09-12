@@ -4,7 +4,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../banks/bank_connector.dart';
+import '../models/budget_limit.dart';
 import '../models/connected_account.dart';
+import '../models/notice.dart';
 import '../models/person.dart';
 import '../models/transaction.dart';
 
@@ -80,6 +82,9 @@ class BudgetState {
     this.lastDailySyncAt,
     this.autoSyncEnabled = true,
     this.demoLoaded = false,
+    this.budgets = BudgetLimit.defaults,
+    this.notices = const [],
+    this.alertSnapshot = const <String, String>{},
   });
 
   final Household household;
@@ -88,6 +93,9 @@ class BudgetState {
   final DateTime? lastDailySyncAt;
   final bool autoSyncEnabled;
   final bool demoLoaded;
+  final List<BudgetLimit> budgets;
+  final List<ThresholdNotice> notices;
+  final Map<String, String> alertSnapshot;
 
   factory BudgetState.empty() => const BudgetState(
         household: Household.defaults,
@@ -102,6 +110,9 @@ class BudgetState {
     DateTime? lastDailySyncAt,
     bool? autoSyncEnabled,
     bool? demoLoaded,
+    List<BudgetLimit>? budgets,
+    List<ThresholdNotice>? notices,
+    Map<String, String>? alertSnapshot,
   }) {
     return BudgetState(
       household: household ?? this.household,
@@ -110,6 +121,9 @@ class BudgetState {
       lastDailySyncAt: lastDailySyncAt ?? this.lastDailySyncAt,
       autoSyncEnabled: autoSyncEnabled ?? this.autoSyncEnabled,
       demoLoaded: demoLoaded ?? this.demoLoaded,
+      budgets: budgets ?? this.budgets,
+      notices: notices ?? this.notices,
+      alertSnapshot: alertSnapshot ?? this.alertSnapshot,
     );
   }
 
@@ -120,6 +134,9 @@ class BudgetState {
         'lastDailySyncAt': lastDailySyncAt?.toIso8601String(),
         'autoSyncEnabled': autoSyncEnabled,
         'demoLoaded': demoLoaded,
+        'budgets': budgets.map((b) => b.toJson()).toList(),
+        'notices': notices.map((n) => n.toJson()).toList(),
+        'alertSnapshot': alertSnapshot,
       };
 
   factory BudgetState.fromJson(Map<String, dynamic> json) => BudgetState(
@@ -137,5 +154,16 @@ class BudgetState {
             : DateTime.parse(json['lastDailySyncAt'] as String),
         autoSyncEnabled: json['autoSyncEnabled'] as bool? ?? true,
         demoLoaded: json['demoLoaded'] as bool? ?? false,
+        budgets: json['budgets'] == null
+            ? BudgetLimit.defaults
+            : (json['budgets'] as List<dynamic>)
+                .map((e) => BudgetLimit.fromJson(e as Map<String, dynamic>))
+                .toList(),
+        notices: (json['notices'] as List<dynamic>? ?? const [])
+            .map((e) => ThresholdNotice.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        alertSnapshot: (json['alertSnapshot'] as Map<String, dynamic>? ??
+                const <String, dynamic>{})
+            .map((key, value) => MapEntry(key, value.toString())),
       );
 }

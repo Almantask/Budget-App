@@ -9,6 +9,8 @@ import 'widgets/category_filter.dart';
 import 'widgets/delta_badge.dart';
 import 'widgets/period_selector.dart';
 import 'widgets/person_filter.dart';
+import 'widgets/threshold_banners.dart';
+import 'widgets/trend_chart.dart';
 
 class OverviewPage extends StatelessWidget {
   const OverviewPage({super.key});
@@ -90,6 +92,17 @@ class OverviewPage extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        TrendChart(
+          months: controller.trendMonths,
+          weeks: controller.trendWeeks,
+          weekly: controller.trendWeekly,
+          onWeeklyChanged: controller.setTrendWeekly,
+        ),
+        const SizedBox(height: 12),
+        ThresholdBanners(alerts: controller.thresholdAlerts),
+        const SizedBox(height: 12),
+        AnomalyList(items: controller.spendingAnomalies),
         const SizedBox(height: 12),
         Card(
           child: Padding(

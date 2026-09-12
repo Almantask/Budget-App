@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../banks/bank_connector.dart';
+import '../models/budget_limit.dart';
+import '../models/category.dart';
 import '../state/budget_controller.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -73,6 +75,26 @@ class _SettingsPageState extends State<SettingsPage> {
           child: const Text('Išsaugoti vardus'),
         ),
         const SizedBox(height: 24),
+        Text('Biudžeto ribos', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 4),
+        const Text(
+          'Mėnesio limitai ir „Įspėti ties“ slenkstis. Būstas ir komunalinės gali turėti 100 %, kad vienkartinės sąskaitos nekeltų tempo įspėjimo.',
+        ),
+        const SizedBox(height: 12),
+        _BudgetEditor(
+          categoryId: 'overall',
+          label: 'Visos išlaidos',
+          budget: _limitFor(controller, 'overall'),
+          onSave: controller.updateBudget,
+        ),
+        for (final category in Categories.spendable)
+          _BudgetEditor(
+            categoryId: category.id,
+            label: category.name,
+            budget: _limitFor(controller, category.id),
+            onSave: controller.updateBudget,
+          ),
+        const SizedBox(height: 24),
         Text('Bankų raktai', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
         const Text(
@@ -114,6 +136,120 @@ class _SettingsPageState extends State<SettingsPage> {
           child: const Text('Perkrauti demo duomenis'),
         ),
       ],
+    );
+  }
+
+  BudgetLimit? _limitFor(BudgetController controller, String categoryId) {
+    for (final budget in controller.state.budgets) {
+      if (budget.categoryId == categoryId) return budget;
+    }
+    return null;
+  }
+}
+
+class _BudgetEditor extends StatefulWidget {
+  const _BudgetEditor({
+    required this.categoryId,
+    required this.label,
+    required this.budget,
+    required this.onSave,
+  });
+
+  final String categoryId;
+  final String label;
+  final BudgetLimit? budget;
+  final Future<void> Function({
+    required String categoryId,
+    required double monthlyLimit,
+    required double warnAt,
+  }) onSave;
+
+  @override
+  State<_BudgetEditor> createState() => _BudgetEditorState();
+}
+
+class _BudgetEditorState extends State<_BudgetEditor> {
+  late final TextEditingController _limit;
+  late double _warnAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _limit = TextEditingController(
+      text: widget.budget == null
+          ? ''
+          : widget.budget!.monthlyLimit.toStringAsFixed(0),
+    );
+    _warnAt = widget.budget?.warnAt ?? 0.8;
+  }
+
+  @override
+  void didUpdateWidget(covariant _BudgetEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.budget?.monthlyLimit != widget.budget?.monthlyLimit &&
+        !_limit.text.contains('.')) {
+      _limit.text = widget.budget == null
+          ? ''
+          : widget.budget!.monthlyLimit.toStringAsFixed(0);
+    }
+    if (oldWidget.budget?.warnAt != widget.budget?.warnAt) {
+      _warnAt = widget.budget?.warnAt ?? _warnAt;
+    }
+  }
+
+  @override
+  void dispose() {
+    _limit.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.label, style: Theme.of(context).textTheme.titleSmall),
+            TextField(
+              controller: _limit,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Mėnesio limito €',
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text('Įspėti ties ${(_warnAt * 100).round()}%'),
+            Slider(
+              min: 0.5,
+              max: 1,
+              divisions: 10,
+              value: _warnAt,
+              label: '${(_warnAt * 100).round()}%',
+              onChanged: (value) => setState(() => _warnAt = value),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  final parsed = double.tryParse(
+                        _limit.text.trim().replaceAll(',', '.'),
+                      ) ??
+                      0;
+                  widget.onSave(
+                    categoryId: widget.categoryId,
+                    monthlyLimit: parsed,
+                    warnAt: _warnAt,
+                  );
+                },
+                child: const Text('Išsaugoti'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -271,6 +271,26 @@ class DemoHouseholdFactory {
       ),
     ];
 
+    if (now.day >= 8) {
+      add(
+        date: DateTime(now.year, now.month, 8, 19, 30),
+        amount: -89.4,
+        merchant: 'Restoranas Ertlio namas',
+        bank: BankId.revolut,
+        personId: Person.meId,
+      );
+    }
+    if (now.day >= 10) {
+      add(
+        date: DateTime(now.year, now.month, 10, 20, 15),
+        amount: -118,
+        merchant: 'Bilietai.lt',
+        bank: BankId.revolut,
+        personId: Person.partnerId,
+        description: 'Koncerto bilietai',
+      );
+    }
+
     return DemoHousehold(transactions: txs, accounts: accounts);
   }
 }
