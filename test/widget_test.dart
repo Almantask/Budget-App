@@ -41,6 +41,24 @@ List<String> _overflowsFrom(FlutterErrorDetails details) {
   return const [];
 }
 
+Future<void> _pumpShell(WidgetTester tester, BudgetController controller) {
+  return tester.pumpWidget(
+    ChangeNotifierProvider.value(
+      value: controller,
+      child: const MaterialApp(
+        locale: Locale('lt'),
+        localizationsDelegates: [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: [Locale('lt')],
+        home: HomeShell(),
+      ),
+    ),
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -58,21 +76,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final controller = _controller();
     await controller.load();
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: controller,
-        child: const MaterialApp(
-          locale: Locale('lt'),
-          localizationsDelegates: [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: [Locale('lt')],
-          home: HomeShell(),
-        ),
-      ),
-    );
+    await _pumpShell(tester, controller);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
@@ -125,21 +129,7 @@ void main() {
 
     final controller = _controller();
     await controller.load();
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: controller,
-        child: const MaterialApp(
-          locale: Locale('lt'),
-          localizationsDelegates: [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: [Locale('lt')],
-          home: HomeShell(),
-        ),
-      ),
-    );
+    await _pumpShell(tester, controller);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.byType(NavigationBar), findsOneWidget);
@@ -170,5 +160,39 @@ void main() {
     expect(find.text(formatEur(1234.5)), findsNothing);
     await tester.pumpAndSettle();
     expect(find.text(formatEur(1234.5)), findsOneWidget);
+  });
+
+  testWidgets('settings and banks describe Enable Banking', (tester) async {
+    tester.view.physicalSize = const Size(400, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _controller();
+    await controller.load();
+    await _pumpShell(tester, controller);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const PageStorageKey<String>('settings-scroll')),
+      const Offset(0, -5000),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Enable Banking application ID'), findsOneWidget);
+    expect(find.text('Enable Banking RSA private key (PEM)'), findsOneWidget);
+    expect(find.text('GoCardless secret_id'), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Bankai'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Kartą į dieną auto-sync'), findsOneWidget);
+    expect(find.text('Perjungti ryšį'), findsWidgets);
+    expect(find.text('GoCardless'), findsNothing);
   });
 }

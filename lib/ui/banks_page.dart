@@ -121,14 +121,38 @@ class _BankCard extends StatelessWidget {
               runSpacing: 8,
               children: [
                 FilledButton.tonal(
-                  onPressed: () => controller.connectBank(
-                    bank,
-                    personId: account?.personId ?? Person.meId,
-                  ),
+                  onPressed: () async {
+                    final uri = await controller.connectBank(
+                      bank,
+                      personId: account?.personId ?? Person.meId,
+                    );
+                    if (uri != null) {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    }
+                  },
                   child: Text(status == AccountLinkStatus.disconnected
                       ? 'Susieti per Open Banking'
                       : 'Perjungti ryšį'),
                 ),
+                if (status == AccountLinkStatus.pending) ...[
+                  if (account?.authorizationUrl != null)
+                    OutlinedButton(
+                      onPressed: () async {
+                        await launchUrl(
+                          Uri.parse(account!.authorizationUrl!),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      },
+                      child: const Text('Atidaryti sutikimą'),
+                    ),
+                  OutlinedButton(
+                    onPressed: () => _pasteCallback(context, bank),
+                    child: const Text('Įklijuoti sutikimo nuorodą'),
+                  ),
+                ],
                 OutlinedButton(
                   onPressed: () async {
                     final err = await controller.pickAndImportCsv(
@@ -142,15 +166,13 @@ class _BankCard extends StatelessWidget {
                   },
                   child: const Text('CSV importas'),
                 ),
-                if (controller.credentials.hasGoCardless)
+                if (controller.credentials.hasEnableBanking)
                   TextButton(
                     onPressed: () async {
-                      final uri = Uri.parse(
-                        'https://bankaccountdata.gocardless.com/',
-                      );
+                      final uri = Uri.parse('https://enablebanking.com/');
                       await launchUrl(uri, mode: LaunchMode.externalApplication);
                     },
-                    child: const Text('GoCardless'),
+                    child: const Text('Enable Banking'),
                   ),
               ],
             ),
@@ -163,7 +185,42 @@ class _BankCard extends StatelessWidget {
   String _statusLabel(AccountLinkStatus status) => switch (status) {
         AccountLinkStatus.disconnected => 'Nesusietas',
         AccountLinkStatus.pending => 'Laukia banko sutikimo',
-        AccountLinkStatus.connected => 'Prijungtas (PSD2)',
+        AccountLinkStatus.connected => 'Prijungtas (Enable Banking)',
         AccountLinkStatus.demo => 'Demo / CSV režimas',
       };
+}
+
+Future<void> _pasteCallback(BuildContext context, BankId bank) async {
+  final field = TextEditingController();
+  final submitted = await showDialog<String>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text('${bank.label}: sutikimo nuoroda'),
+        content: TextField(
+          controller: field,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            labelText: 'Enable Banking callback URL arba code',
+            hintText: 'budgetapp://enable-banking/callback?code=…',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Atšaukti'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, field.text.trim()),
+            child: const Text('Užbaigti'),
+          ),
+        ],
+      );
+    },
+  );
+  field.dispose();
+  if (submitted == null || submitted.isEmpty || !context.mounted) return;
+  await context.read<BudgetController>().completeBankLink(bank, submitted);
 }

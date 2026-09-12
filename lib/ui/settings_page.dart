@@ -17,8 +17,9 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _me;
   late final TextEditingController _partner;
-  late final TextEditingController _secretId;
-  late final TextEditingController _secretKey;
+  late final TextEditingController _applicationId;
+  late final TextEditingController _privateKey;
+  late final TextEditingController _redirectUri;
   late final TextEditingController _wise;
 
   @override
@@ -28,11 +29,15 @@ class _SettingsPageState extends State<SettingsPage> {
     _me = TextEditingController(text: controller.state.household.me.name);
     _partner =
         TextEditingController(text: controller.state.household.partner.name);
-    _secretId = TextEditingController(
-      text: controller.credentials.gocardlessSecretId ?? '',
+    _applicationId = TextEditingController(
+      text: controller.credentials.enableBankingApplicationId ?? '',
     );
-    _secretKey = TextEditingController(
-      text: controller.credentials.gocardlessSecretKey ?? '',
+    _privateKey = TextEditingController(
+      text: controller.credentials.enableBankingPrivateKey ?? '',
+    );
+    _redirectUri = TextEditingController(
+      text: controller.credentials.enableBankingRedirectUri ??
+          BankCredentials.defaultRedirectUri,
     );
     _wise = TextEditingController(
       text: controller.credentials.wiseApiToken ?? '',
@@ -43,8 +48,9 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _me.dispose();
     _partner.dispose();
-    _secretId.dispose();
-    _secretKey.dispose();
+    _applicationId.dispose();
+    _privateKey.dispose();
+    _redirectUri.dispose();
     _wise.dispose();
     super.dispose();
   }
@@ -53,6 +59,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final controller = context.watch<BudgetController>();
     return ListView(
+      key: const PageStorageKey<String>('settings-scroll'),
       padding: AppLayout.pagePadding(context),
       children: [
         Text('Šeima', style: Theme.of(context).textTheme.titleLarge),
@@ -99,18 +106,31 @@ class _SettingsPageState extends State<SettingsPage> {
         Text('Bankų raktai', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
         const Text(
-          'GoCardless Bank Account Data (PSD2) sujungia Artea, Revolut, Swedbank ir Wise be slaptažodžių. Raktai lieka tik šiame įrenginyje.',
+          'Enable Banking (PSD2) sujungia Artea, Revolut, Swedbank ir Wise be slaptažodžių. Application ID ir RSA raktas lieka tik šiame įrenginyje. Redirect URL turi sutapti su Enable Banking valdymo skydelyje.',
         ),
         const SizedBox(height: 8),
         TextField(
-          controller: _secretId,
-          decoration: const InputDecoration(labelText: 'GoCardless secret_id'),
+          controller: _applicationId,
+          decoration: const InputDecoration(
+            labelText: 'Enable Banking application ID',
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
-          controller: _secretKey,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'GoCardless secret_key'),
+          controller: _privateKey,
+          maxLines: 6,
+          minLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Enable Banking RSA private key (PEM)',
+            alignLabelWithHint: true,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _redirectUri,
+          decoration: const InputDecoration(
+            labelText: 'Enable Banking redirect URL',
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -124,8 +144,9 @@ class _SettingsPageState extends State<SettingsPage> {
         FilledButton.tonal(
           onPressed: () => controller.saveCredentials(
             BankCredentials(
-              gocardlessSecretId: _secretId.text.trim(),
-              gocardlessSecretKey: _secretKey.text.trim(),
+              enableBankingApplicationId: _applicationId.text.trim(),
+              enableBankingPrivateKey: _privateKey.text.trim(),
+              enableBankingRedirectUri: _redirectUri.text.trim(),
               wiseApiToken: _wise.text.trim(),
             ),
           ),
