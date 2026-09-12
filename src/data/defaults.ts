@@ -17,11 +17,11 @@ export const CATEGORIES: Category[] = [
 
 export const DEFAULT_BUDGETS: Budget[] = [
   { id: 'b-overall', categoryId: 'overall', monthlyLimit: 1600, warnAt: 0.8 },
-  { id: 'b-housing', categoryId: 'housing', monthlyLimit: 700, warnAt: 0.9 },
+  { id: 'b-housing', categoryId: 'housing', monthlyLimit: 700, warnAt: 1 },
   { id: 'b-groceries', categoryId: 'groceries', monthlyLimit: 340, warnAt: 0.8 },
   { id: 'b-dining', categoryId: 'dining', monthlyLimit: 160, warnAt: 0.75 },
   { id: 'b-transport', categoryId: 'transport', monthlyLimit: 120, warnAt: 0.8 },
-  { id: 'b-utilities', categoryId: 'utilities', monthlyLimit: 140, warnAt: 0.85 },
+  { id: 'b-utilities', categoryId: 'utilities', monthlyLimit: 140, warnAt: 1 },
   { id: 'b-health', categoryId: 'health', monthlyLimit: 80, warnAt: 0.8 },
   { id: 'b-fun', categoryId: 'fun', monthlyLimit: 140, warnAt: 0.7 },
   { id: 'b-shopping', categoryId: 'shopping', monthlyLimit: 120, warnAt: 0.7 },

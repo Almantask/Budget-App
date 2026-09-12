@@ -91,17 +91,22 @@ export function Quests() {
             </div>
           </header>
           <div className="timeline">
-            {derived.hits.slice(-8).map((hit) => (
+            {derived.hits.slice(-8).map((hit) => {
+              const current = hit.month === derived.today.slice(0, 7)
+              const status = hit.hit ? 'Stretch hit' : current ? 'In progress' : 'Missed'
+              const tone = hit.hit ? 'up' : current ? '' : 'down'
+              return (
               <div className="hit" key={hit.month}>
                 <span>
                   <b>{monthLabel(hit.month)}</b>
                   <div className="muted">target {formatMoney(hit.goal.target)}</div>
                 </span>
-                <span className={hit.hit ? 'up' : 'down'}>
-                  {hit.hit ? 'Stretch hit' : 'Missed'} · {formatSigned(hit.net)}
+                <span className={tone}>
+                  {status} · {formatSigned(hit.net)}
                 </span>
               </div>
-            ))}
+              )
+            })}
           </div>
         </section>
         <section className="card">

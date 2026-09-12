@@ -77,6 +77,12 @@ export function compareIso(a: string, b: string): number {
   return a.localeCompare(b)
 }
 
+export function addDays(iso: string, delta: number): string {
+  const date = toDate(iso)
+  date.setDate(date.getDate() + delta)
+  return toIso(date)
+}
+
 export function uniqueSortedDates(dates: string[]): string[] {
   return [...new Set(dates)].sort(compareIso)
 }

@@ -50,4 +50,18 @@ describe('evaluateBudget', () => {
     expect(result.projected).toBeCloseTo(240)
     expect(alertMessage('Shopping', result)).toContain('overshoot')
   })
+
+  it('does not pace a single lump-sum bill', () => {
+    const result = evaluateBudget({
+      spent: 650,
+      limit: 700,
+      warnAt: 1,
+      day: 12,
+      daysInMonth: 30,
+      transactionCount: 1,
+      recentSpent: 0,
+      recentDays: 7,
+    })
+    expect(result.level).toBe('ok')
+  })
 })

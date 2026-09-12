@@ -150,3 +150,29 @@ export function datesLoggedInMonth(
 function toIsoLocal(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
+
+export function expenseActivity(
+  transactions: Transaction[],
+  month: string,
+  categoryId: string | undefined,
+  startDate: string,
+  endDate: string,
+): { spent: number; count: number } {
+  let recent = 0
+  let count = 0
+  for (const transaction of transactions) {
+    if (transaction.kind !== 'expense') continue
+    if (!inMonth(transaction, month)) continue
+    if (categoryId && transaction.categoryId !== categoryId) continue
+    count += 1
+    if (transaction.date >= startDate && transaction.date <= endDate) {
+      recent += transaction.amount
+    }
+  }
+  return { spent: roundMoney(recent), count }
+}
+
+export function trimSeries(series: MonthPoint[]): MonthPoint[] {
+  const first = series.findIndex((point) => point.gains > 0 || point.expenses > 0)
+  return first <= 0 ? series : series.slice(first)
+}

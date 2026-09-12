@@ -1,13 +1,10 @@
-import { spentInMonth } from '../lib/analytics.ts'
-import { daysInMonth, monthKey, toDate } from '../lib/dates.ts'
 import { formatMoney, formatPercent } from '../lib/money.ts'
-import { budgetLabel, evaluateBudget } from '../lib/thresholds.ts'
+import { evaluateBudgetRecord } from '../lib/thresholds.ts'
 import { useBudget } from '../store/BudgetContext.tsx'
 
 export function Budgets() {
   const { state, viewMonth, derived, updateBudget } = useBudget()
   const today = derived.today
-  const day = monthKey(today) === viewMonth ? toDate(today).getDate() : daysInMonth(viewMonth)
 
   return (
     <div className="grid split">
@@ -16,25 +13,14 @@ export function Budgets() {
           <div>
             <h2>Budget thresholds</h2>
             <p>
-              Each budget has a limit and a warning line. Grove also watches your pace so a quiet
-              start of the month doesn’t hide an overspend later.
+              Each budget has a limit and a warning line. Grove also watches your recent pace so a
+              quiet start of the month doesn’t hide an overspend later.
             </p>
           </div>
         </header>
         <div className="rows">
           {state.budgets.map((budget) => {
-            const spent =
-              budget.categoryId === 'overall'
-                ? spentInMonth(state.transactions, viewMonth)
-                : spentInMonth(state.transactions, viewMonth, budget.categoryId)
-            const evaluation = evaluateBudget({
-              spent,
-              limit: budget.monthlyLimit,
-              warnAt: budget.warnAt,
-              day,
-              daysInMonth: daysInMonth(viewMonth),
-            })
-            const label = budgetLabel(budget, state)
+            const { evaluation, label } = evaluateBudgetRecord(state, budget, viewMonth, today)
             const width = Math.min(100, evaluation.ratio * 100)
             const warnMark = budget.warnAt * 100
             return (
@@ -43,8 +29,8 @@ export function Budgets() {
                   <div>
                     <b>{label}</b>
                     <div className="muted">
-                      {formatMoney(spent)} of {formatMoney(budget.monthlyLimit)} · warns at{' '}
-                      {formatPercent(budget.warnAt)}
+                      {formatMoney(evaluation.spent)} of {formatMoney(budget.monthlyLimit)} · warns
+                      at {formatPercent(budget.warnAt)}
                     </div>
                   </div>
                   <span className={`chip ${evaluation.level}`}>{evaluation.level}</span>
@@ -113,7 +99,8 @@ export function Budgets() {
           </div>
         </header>
         <p className="help">
-          <b>Pace</b> means your current daily spend would miss the limit if it continues.
+          <b>Pace</b> means recent spending in that category, if it continues, would miss the
+          limit. One-off bills like rent do not trigger a pace alert.
           <br />
           <br />
           <b>Warning</b> means you’ve crossed the threshold you chose — the gold tick on each bar.
@@ -123,7 +110,7 @@ export function Budgets() {
           <br />
           <br />
           Tighten a threshold if a category tends to sneak up on you (dining and shopping start
-          stricter). Housing can sit higher because rent is usually fixed.
+          stricter). Housing can sit at 100% because rent is usually fixed.
         </p>
         <p className="help" style={{ marginTop: 16 }}>
           Alerts also appear on Overview so you don’t have to hunt for them. Changing a limit or
