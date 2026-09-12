@@ -41,13 +41,13 @@ function classifySpike(current: number, baseline: SampleStats): {
   multiple: number
 } | null {
   if (baseline.n < 3 || current < 30) return null
-  if (isStableBill(baseline) && current < baseline.mean * 1.18) return null
   const multiple = baseline.median > 0 ? current / baseline.median : 0
   const z = baseline.stdev > 1 ? (current - baseline.mean) / baseline.stdev : 0
   const delta = current - baseline.median
-  if (delta < 35) return null
-  if (multiple >= 1.9 || z >= 2.15) return { severity: 'unusual', multiple }
-  if (multiple >= 1.45 && (z >= 1.15 || multiple >= 1.55)) return { severity: 'watch', multiple }
+  if (delta < 40 || multiple < 1.25) return null
+  if (isStableBill(baseline) && multiple < 1.5) return null
+  if (multiple >= 1.75 || (z >= 2.15 && multiple >= 1.5)) return { severity: 'unusual', multiple }
+  if (multiple >= 1.35 || z >= 1.4) return { severity: 'watch', multiple }
   return null
 }
 
@@ -59,6 +59,7 @@ function classifyCharge(amount: number, baseline: SampleStats): {
   const multiple = baseline.median > 0 ? amount / baseline.median : 0
   const z = baseline.stdev > 1 ? (amount - baseline.mean) / baseline.stdev : 0
   if (amount - baseline.median < 25) return null
+  if (multiple < 1.8) return null
   if (multiple >= 2.5 || z >= 2.4) return { severity: 'unusual', multiple }
   if (multiple >= 2.1 || z >= 2) return { severity: 'watch', multiple }
   return null

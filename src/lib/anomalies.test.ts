@@ -63,6 +63,18 @@ describe('findSpendingAnomalies', () => {
     expect(anomalies.some((item) => item.categoryId === 'housing')).toBe(false)
   })
 
+  it('does not flag a modest grocery bump on an otherwise steady category', () => {
+    const transactions = [
+      tx('g1', 'dining', 290, '2026-05-04'),
+      tx('g2', 'dining', 294, '2026-06-04'),
+      tx('g3', 'dining', 288, '2026-07-04'),
+      tx('g4', 'dining', 300, '2026-08-04'),
+      tx('g5', 'dining', 340, '2026-09-04'),
+    ]
+    const anomalies = findSpendingAnomalies(state(transactions), '2026-09', '2026-09-12')
+    expect(anomalies.some((item) => item.categoryId === 'dining')).toBe(false)
+  })
+
   it('flags a single charge that is much larger than typical lines in that category', () => {
     const transactions = [
       tx('f1', 'fun', 18, '2026-05-14'),
