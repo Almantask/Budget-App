@@ -18,13 +18,25 @@ enum BankId {
         BankId.wise => 'Wise',
       };
 
-  /// GoCardless / Nordigen institution ids. Artea is the Šiaulių bankas rebrand
-  /// (BIC CBSBLT26). Live lookup can override these if the catalog changes.
-  String get gocardlessInstitutionId => switch (this) {
-        BankId.artea => 'SIAULIUBANKAS_CBSBLT26',
-        BankId.revolut => 'REVOLUT_REVOLT21',
-        BankId.swed => 'SWEDBANK_HABALT22',
-        BankId.wise => 'WISE_TRWIGB22',
+  /// Enable Banking ASPSP names. Artea is the Šiaulių bankas rebrand
+  /// (BIC CBSBLT26). Live GET /aspsps lookup can override these.
+  String get enableBankingAspspName => switch (this) {
+        BankId.artea => 'Artea',
+        BankId.revolut => 'Revolut',
+        BankId.swed => 'Swedbank',
+        BankId.wise => 'Wise',
+      };
+
+  String get enableBankingCountry => switch (this) {
+        BankId.wise => 'GB',
+        _ => 'LT',
+      };
+
+  List<String> get enableBankingNameHints => switch (this) {
+        BankId.artea => const ['artea', 'siauliu', 'šiaulių', 'siauliu bankas'],
+        BankId.revolut => const ['revolut'],
+        BankId.swed => const ['swedbank'],
+        BankId.wise => const ['wise', 'transferwise'],
       };
 
   String get bic => switch (this) {

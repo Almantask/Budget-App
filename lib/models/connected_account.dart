@@ -7,8 +7,10 @@ class ConnectedAccount {
     required this.personId,
     required this.displayName,
     this.iban,
-    this.gocardlessRequisitionId,
-    this.gocardlessAccountId,
+    this.enableBankingAuthorizationId,
+    this.enableBankingSessionId,
+    this.enableBankingAccountId,
+    this.authorizationUrl,
     this.lastSyncedAt,
     this.status = AccountLinkStatus.disconnected,
   });
@@ -18,8 +20,10 @@ class ConnectedAccount {
   final String personId;
   final String displayName;
   final String? iban;
-  final String? gocardlessRequisitionId;
-  final String? gocardlessAccountId;
+  final String? enableBankingAuthorizationId;
+  final String? enableBankingSessionId;
+  final String? enableBankingAccountId;
+  final String? authorizationUrl;
   final DateTime? lastSyncedAt;
   final AccountLinkStatus status;
 
@@ -31,8 +35,10 @@ class ConnectedAccount {
     String? personId,
     String? displayName,
     String? iban,
-    String? gocardlessRequisitionId,
-    String? gocardlessAccountId,
+    String? enableBankingAuthorizationId,
+    String? enableBankingSessionId,
+    String? enableBankingAccountId,
+    String? authorizationUrl,
     DateTime? lastSyncedAt,
     AccountLinkStatus? status,
   }) {
@@ -42,9 +48,13 @@ class ConnectedAccount {
       personId: personId ?? this.personId,
       displayName: displayName ?? this.displayName,
       iban: iban ?? this.iban,
-      gocardlessRequisitionId:
-          gocardlessRequisitionId ?? this.gocardlessRequisitionId,
-      gocardlessAccountId: gocardlessAccountId ?? this.gocardlessAccountId,
+      enableBankingAuthorizationId:
+          enableBankingAuthorizationId ?? this.enableBankingAuthorizationId,
+      enableBankingSessionId:
+          enableBankingSessionId ?? this.enableBankingSessionId,
+      enableBankingAccountId:
+          enableBankingAccountId ?? this.enableBankingAccountId,
+      authorizationUrl: authorizationUrl ?? this.authorizationUrl,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
       status: status ?? this.status,
     );
@@ -56,8 +66,10 @@ class ConnectedAccount {
         'personId': personId,
         'displayName': displayName,
         'iban': iban,
-        'gocardlessRequisitionId': gocardlessRequisitionId,
-        'gocardlessAccountId': gocardlessAccountId,
+        'enableBankingAuthorizationId': enableBankingAuthorizationId,
+        'enableBankingSessionId': enableBankingSessionId,
+        'enableBankingAccountId': enableBankingAccountId,
+        'authorizationUrl': authorizationUrl,
         'lastSyncedAt': lastSyncedAt?.toIso8601String(),
         'status': status.name,
       };
@@ -69,8 +81,13 @@ class ConnectedAccount {
         personId: json['personId'] as String,
         displayName: json['displayName'] as String,
         iban: json['iban'] as String?,
-        gocardlessRequisitionId: json['gocardlessRequisitionId'] as String?,
-        gocardlessAccountId: json['gocardlessAccountId'] as String?,
+        enableBankingAuthorizationId:
+            json['enableBankingAuthorizationId'] as String?,
+        enableBankingSessionId: json['enableBankingSessionId'] as String? ??
+            json['gocardlessRequisitionId'] as String?,
+        enableBankingAccountId: json['enableBankingAccountId'] as String? ??
+            json['gocardlessAccountId'] as String?,
+        authorizationUrl: json['authorizationUrl'] as String?,
         lastSyncedAt: json['lastSyncedAt'] == null
             ? null
             : DateTime.parse(json['lastSyncedAt'] as String),

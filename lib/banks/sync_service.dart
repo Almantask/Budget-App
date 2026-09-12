@@ -3,16 +3,17 @@ import '../models/connected_account.dart';
 import '../models/transaction.dart';
 import 'bank_connector.dart';
 import 'demo_connector.dart';
-import 'gocardless_client.dart';
+import 'enable_banking_client.dart';
+import 'wise_client.dart';
 
 class BankSyncService {
   BankSyncService({
-    GoCardlessClient? gocardless,
+    EnableBankingClient? enableBanking,
     WiseApiClient? wise,
-  })  : _gocardless = gocardless ?? GoCardlessClient(),
+  })  : _enableBanking = enableBanking ?? EnableBankingClient(),
         _wise = wise ?? WiseApiClient();
 
-  final GoCardlessClient _gocardless;
+  final EnableBankingClient _enableBanking;
   final WiseApiClient _wise;
 
   BankConnector demoConnector(BankId bank) => DemoBankConnector(bank: bank);
@@ -23,25 +24,32 @@ class BankSyncService {
     required String redirectUri,
     required String personId,
   }) async {
-    if (!credentials.hasGoCardless) {
+    if (!credentials.hasEnableBanking) {
       return demoConnector(bank).startLink(
         redirectUri: redirectUri,
         personId: personId,
       );
     }
-    final token = await _gocardless.createAccessToken(
-      secretId: credentials.gocardlessSecretId!,
-      secretKey: credentials.gocardlessSecretKey!,
-    );
-    final institution = await _gocardless.lookupInstitutionId(
-      accessToken: token,
-      bank: bank,
-    );
-    return _gocardless.createRequisition(
-      accessToken: token,
+    return _enableBanking.startAuthorization(
+      credentials: credentials,
       bank: bank,
       redirectUri: redirectUri,
-      institutionId: institution,
+    );
+  }
+
+  Future<EnableBankingLinkedSession> completeOpenBankingLink({
+    required BankCredentials credentials,
+    required String callbackOrCode,
+  }) async {
+    if (!credentials.hasEnableBanking) {
+      throw BankSyncException(
+        'Įveskite Enable Banking application ID ir RSA raktą Nustatymuose.',
+      );
+    }
+    final code = EnableBankingClient.extractAuthorizationCode(callbackOrCode);
+    return _enableBanking.authorizeSession(
+      credentials: credentials,
+      code: code,
     );
   }
 
@@ -51,7 +59,7 @@ class BankSyncService {
     DateTime? from,
   }) async {
     if (account.status == AccountLinkStatus.demo ||
-        !credentials.hasGoCardless) {
+        !credentials.hasEnableBanking) {
       final result = await demoConnector(account.bank).pullTransactions(
         accountRef: account.id,
         personId: account.personId,
@@ -69,37 +77,37 @@ class BankSyncService {
       return result.transactions;
     }
 
-    final token = await _gocardless.createAccessToken(
-      secretId: credentials.gocardlessSecretId!,
-      secretKey: credentials.gocardlessSecretKey!,
-    );
-    final accountId = account.gocardlessAccountId;
-    if (accountId == null || accountId.isEmpty) {
-      final requisition = account.gocardlessRequisitionId;
-      if (requisition == null) return const [];
-      final ids = await _gocardless.listAccountIds(
-        accessToken: token,
-        requisitionId: requisition,
+    final accountIds = await _accountIdsFor(credentials, account);
+    if (accountIds.isEmpty) return const [];
+    final txs = <MoneyTx>[];
+    for (final accountId in accountIds) {
+      final result = await _enableBanking.fetchTransactions(
+        credentials: credentials,
+        accountId: accountId,
+        bank: account.bank,
+        personId: account.personId,
+        from: from,
       );
-      if (ids.isEmpty) return const [];
-      return _gocardless
-          .fetchTransactions(
-            accessToken: token,
-            accountId: ids.first,
-            bank: account.bank,
-            personId: account.personId,
-            from: from,
-          )
-          .then((r) => r.transactions);
+      txs.addAll(result.transactions);
     }
-    final result = await _gocardless.fetchTransactions(
-      accessToken: token,
-      accountId: accountId,
-      bank: account.bank,
-      personId: account.personId,
-      from: from,
-    );
-    return result.transactions;
+    return txs;
+  }
+
+  Future<List<String>> _accountIdsFor(
+    BankCredentials credentials,
+    ConnectedAccount account,
+  ) async {
+    final sessionId = account.enableBankingSessionId;
+    if (sessionId != null && sessionId.isNotEmpty) {
+      final ids = await _enableBanking.listAccountIds(
+        credentials: credentials,
+        sessionId: sessionId,
+      );
+      if (ids.isNotEmpty) return ids;
+    }
+    final stored = account.enableBankingAccountId;
+    if (stored != null && stored.isNotEmpty) return [stored];
+    return const [];
   }
 }
 

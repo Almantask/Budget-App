@@ -15,6 +15,13 @@ class BankSyncResult {
   final String? message;
 }
 
+class BankSyncException implements Exception {
+  BankSyncException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 abstract class BankConnector {
   BankId get bank;
 
@@ -41,24 +48,69 @@ class BankAuthSession {
     required this.authorizationUrl,
   });
 
+  /// Enable Banking authorization_id until the PSU callback is exchanged.
   final String sessionId;
   final String authorizationUrl;
 }
 
+class EnableBankingLinkedSession {
+  const EnableBankingLinkedSession({
+    required this.sessionId,
+    this.accountId,
+    this.iban,
+    this.displayName,
+  });
+
+  final String sessionId;
+  final String? accountId;
+  final String? iban;
+  final String? displayName;
+}
+
+class EnableBankingAspsp {
+  const EnableBankingAspsp({
+    required this.name,
+    required this.country,
+    this.bic,
+    this.maximumConsentValidity,
+  });
+
+  final String name;
+  final String country;
+  final String? bic;
+  final int? maximumConsentValidity;
+}
+
 class BankCredentials {
   const BankCredentials({
-    this.gocardlessSecretId,
-    this.gocardlessSecretKey,
+    this.enableBankingApplicationId,
+    this.enableBankingPrivateKey,
+    this.enableBankingRedirectUri,
     this.wiseApiToken,
   });
 
-  final String? gocardlessSecretId;
-  final String? gocardlessSecretKey;
+  /// Enable Banking application id (`kid` in the JWT header).
+  final String? enableBankingApplicationId;
+
+  /// RSA private key PEM used to sign Enable Banking JWTs.
+  final String? enableBankingPrivateKey;
+
+  /// Redirect URL registered in the Enable Banking control panel.
+  final String? enableBankingRedirectUri;
+
   final String? wiseApiToken;
 
-  bool get hasGoCardless =>
-      (gocardlessSecretId?.isNotEmpty ?? false) &&
-      (gocardlessSecretKey?.isNotEmpty ?? false);
+  static const defaultRedirectUri = 'budgetapp://enable-banking/callback';
+
+  bool get hasEnableBanking =>
+      (enableBankingApplicationId?.isNotEmpty ?? false) &&
+      (enableBankingPrivateKey?.isNotEmpty ?? false);
 
   bool get hasWise => wiseApiToken?.isNotEmpty ?? false;
+
+  String get redirectUri {
+    final configured = enableBankingRedirectUri?.trim();
+    if (configured != null && configured.isNotEmpty) return configured;
+    return defaultRedirectUri;
+  }
 }
