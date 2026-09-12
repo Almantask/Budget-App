@@ -30,8 +30,8 @@ class DeltaBadge extends StatelessWidget {
       color = improved ? AppColors.income : const Color(0xFFB42318);
     }
     final arrow = delta == 0 ? '→' : (delta < 0 ? '↓' : '↑');
-    return Align(
-      alignment: Alignment.centerLeft,
+    return SizedBox(
+      width: double.infinity,
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
