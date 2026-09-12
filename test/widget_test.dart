@@ -52,7 +52,7 @@ void main() {
 
   testWidgets('overview defaults to both people and shows period chips',
       (tester) async {
-    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.physicalSize = const Size(400, 2200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -89,7 +89,7 @@ void main() {
   });
 
   testWidgets('app loads demo household', (tester) async {
-    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.physicalSize = const Size(400, 860);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);

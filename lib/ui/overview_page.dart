@@ -116,44 +116,69 @@ class OverviewPage extends StatelessWidget {
       ),
     );
 
-    return ListView(
+    final compact = AppLayout.isLandscape(context) || AppLayout.isShort(context);
+    final names =
+        '${controller.state.household.me.name} ir ${controller.state.household.partner.name}';
+    final dateLabel =
+        '${fmt.format(range.start)} – ${fmt.format(range.end.subtract(const Duration(days: 1)))}';
+
+    final header = [
+      if (!compact)
+        Text(names, style: Theme.of(context).textTheme.headlineSmall)
+      else
+        Text(
+          names,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+      SizedBox(height: compact ? 2 : 4),
+      Text(
+        dateLabel,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+      ),
+    ];
+
+    return SingleChildScrollView(
       padding: padding,
-      children: [
-        Text(
-          '${controller.state.household.me.name} ir ${controller.state.household.partner.name}',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${fmt.format(range.start)} – ${fmt.format(range.end.subtract(const Duration(days: 1)))}',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-        const SizedBox(height: 16),
-        ...filters,
-        const SizedBox(height: 16),
-        if (twoPane)
-          _TwoPane(
-            left: [hero, const SizedBox(height: 12), split],
-            right: [chart, const SizedBox(height: 12), categories],
-          )
-        else ...[
-          hero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...header,
+          if (!compact) ...[
+            const SizedBox(height: 16),
+            ...filters,
+            const SizedBox(height: 16),
+          ] else
+            const SizedBox(height: 12),
+          if (twoPane)
+            _TwoPane(
+              left: [hero, const SizedBox(height: 12), split],
+              right: [chart, const SizedBox(height: 12), categories],
+            )
+          else ...[
+            hero,
+            const SizedBox(height: 12),
+            chart,
+          ],
+          if (compact) ...[
+            const SizedBox(height: 12),
+            ...filters,
+          ],
           const SizedBox(height: 12),
-          chart,
+          ThresholdBanners(alerts: controller.thresholdAlerts),
+          const SizedBox(height: 12),
+          AnomalyList(items: controller.spendingAnomalies),
+          if (!twoPane) ...[
+            const SizedBox(height: 12),
+            split,
+            const SizedBox(height: 12),
+            categories,
+          ],
         ],
-        const SizedBox(height: 12),
-        ThresholdBanners(alerts: controller.thresholdAlerts),
-        const SizedBox(height: 12),
-        AnomalyList(items: controller.spendingAnomalies),
-        if (!twoPane) ...[
-          const SizedBox(height: 12),
-          split,
-          const SizedBox(height: 12),
-          categories,
-        ],
-      ],
+      ),
     );
   }
 }
@@ -168,9 +193,19 @@ class _TwoPane extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Column(children: left)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: left,
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: Column(children: right)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: right,
+          ),
+        ),
       ],
     );
   }
@@ -195,6 +230,7 @@ class _HeroSpendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = AppLayout.isLandscape(context) || AppLayout.isShort(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
@@ -212,7 +248,7 @@ class _HeroSpendCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+        padding: EdgeInsets.fromLTRB(22, compact ? 16 : 22, 22, compact ? 14 : 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
