@@ -112,6 +112,7 @@ export function createDemoState(now = new Date()): AppState {
     if (isCurrent) {
       push('expense', 'dining', 36, dayIso(month, Math.min(9, lastDay)), 'Birthday dinner')
       push('expense', 'dining', 22, dayIso(month, Math.min(11, lastDay)), 'Takeaway after work')
+      push('expense', 'dining', 40, dayIso(month, Math.min(10, lastDay)), 'Weekend brunch')
       push('expense', 'shopping', 79, dayIso(month, Math.min(8, lastDay)), 'New headphones case')
       push('expense', 'groceries', 44, dayIso(month, Math.min(7, lastDay)), 'Mid-week restock')
     }

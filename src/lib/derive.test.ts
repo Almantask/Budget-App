@@ -11,7 +11,7 @@ describe('demo September 2026', () => {
     expect(view.series[0].month).toBe('2026-01')
     expect(view.series.some((point) => point.gains > 0 && point.month < '2026-09')).toBe(true)
     expect(view.stretch.target).toBeGreaterThan(0)
-    expect(view.alerts.some((alert) => alert.categoryId === 'dining')).toBe(true)
+    expect(view.alerts.some((alert) => alert.categoryId === 'dining' && alert.level !== 'pace')).toBe(true)
     expect(view.alerts.some((alert) => alert.categoryId === 'housing')).toBe(false)
     expect(view.quests).toHaveLength(4)
     expect(view.achievements.some((achievement) => achievement.unlocked)).toBe(true)

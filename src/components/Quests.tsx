@@ -83,7 +83,7 @@ export function Quests() {
         <section className="card">
           <header>
             <div>
-              <h2>Streak & history</h2>
+              <h2>Streak and history</h2>
               <p>
                 {liveStreak} day logging streak. Stretch hits from earlier months feed
                 next month’s challenge.
