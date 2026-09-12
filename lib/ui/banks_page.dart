@@ -7,6 +7,7 @@ import '../models/bank.dart';
 import '../models/connected_account.dart';
 import '../models/person.dart';
 import '../state/budget_controller.dart';
+import 'layout.dart';
 
 class BanksPage extends StatelessWidget {
   const BanksPage({super.key});
@@ -15,7 +16,7 @@ class BanksPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<BudgetController>();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      padding: AppLayout.pagePadding(context),
       children: [
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -95,6 +96,7 @@ class _BankCard extends StatelessWidget {
             DropdownButtonFormField<String>(
               // ignore: deprecated_member_use
               value: account?.personId ?? Person.meId,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Sąskaitos savininkas',
                 isDense: true,

@@ -1,9 +1,14 @@
+import 'dart:math' as math;
+import 'dart:ui' show FontFeature, PathMetric;
+
 import 'package:flutter/material.dart';
 
 import '../../models/notice.dart';
+import '../layout.dart';
+import '../motion.dart';
 import '../theme.dart';
 
-class TrendChart extends StatelessWidget {
+class TrendChart extends StatefulWidget {
   const TrendChart({
     super.key,
     required this.months,
@@ -18,23 +23,109 @@ class TrendChart extends StatelessWidget {
   final ValueChanged<bool> onWeeklyChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final expenses = weekly
-        ? weeks.map((p) => p.expenses).toList()
-        : months.map((p) => p.expenses).toList();
-    final gains = weekly
-        ? weeks.map((p) => p.gains).toList()
-        : months.map((p) => p.gains).toList();
-    final net = weekly
-        ? weeks.map((p) => p.net).toList()
-        : months.map((p) => p.net).toList();
-    final labels = weekly
-        ? weeks.map((p) => p.label).toList()
-        : months.map((p) => p.label).toList();
+  State<TrendChart> createState() => _TrendChartState();
+}
 
+class _TrendChartState extends State<TrendChart>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _progress;
+  _ChartGeometry? _geometry;
+  Size? _lastSize;
+  Color? _lastLabelColor;
+  int _dataStamp = 0;
+
+  List<double> get _expenses => widget.weekly
+      ? widget.weeks.map((p) => p.expenses).toList(growable: false)
+      : widget.months.map((p) => p.expenses).toList(growable: false);
+
+  List<double> get _gains => widget.weekly
+      ? widget.weeks.map((p) => p.gains).toList(growable: false)
+      : widget.months.map((p) => p.gains).toList(growable: false);
+
+  List<double> get _net => widget.weekly
+      ? widget.weeks.map((p) => p.net).toList(growable: false)
+      : widget.months.map((p) => p.net).toList(growable: false);
+
+  List<String> get _labels => widget.weekly
+      ? widget.weeks.map((p) => p.label).toList(growable: false)
+      : widget.months.map((p) => p.label).toList(growable: false);
+
+  int _stampFor(TrendChart chart) => Object.hashAll([
+        chart.weekly,
+        ...chart.weekly
+            ? chart.weeks.map((p) => Object.hash(p.key, p.expenses, p.gains, p.net))
+            : chart.months
+                .map((p) => Object.hash(p.month, p.expenses, p.gains, p.net)),
+      ]);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: AppMotion.chart);
+    _progress = CurvedAnimation(parent: _controller, curve: AppMotion.easeOut);
+    _dataStamp = _stampFor(widget);
+    _controller.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    _controller.duration = reduce ? Duration.zero : AppMotion.chart;
+    if (reduce && _controller.value < 1) {
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant TrendChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final stamp = _stampFor(widget);
+    if (stamp != _dataStamp) {
+      _dataStamp = stamp;
+      _geometry?.dispose();
+      _geometry = null;
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _geometry?.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  _ChartGeometry _geometryFor(Size size, Color labelColor) {
+    final cached = _geometry;
+    if (cached != null &&
+        _lastSize == size &&
+        _lastLabelColor == labelColor) {
+      return cached;
+    }
+    cached?.dispose();
+    _lastSize = size;
+    _lastLabelColor = labelColor;
+    _geometry = _ChartGeometry.build(
+      size: size,
+      expenses: _expenses,
+      gains: _gains,
+      net: _net,
+      labels: _labels,
+      labelColor: labelColor,
+    );
+    return _geometry!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = _labels;
+    final scheme = Theme.of(context).colorScheme;
     return Card(
+      clipBehavior: Clip.none,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -42,34 +133,55 @@ class TrendChart extends StatelessWidget {
               'Išlaidos ir pajamos per laiką',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Mėnesiais')),
-                ButtonSegment(value: true, label: Text('Savaitėmis')),
-              ],
-              selected: {weekly},
-              onSelectionChanged: (value) => onWeeklyChanged(value.first),
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            const SizedBox(height: 10),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Mėnesiais')),
+                  ButtonSegment(value: true, label: Text('Savaitėmis')),
+                ],
+                selected: {widget.weekly},
+                onSelectionChanged: (value) =>
+                    widget.onWeeklyChanged(value.first),
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 180,
+              height: AppLayout.isShort(context)
+                  ? 128
+                  : AppLayout.isLandscape(context)
+                      ? 176
+                      : 208,
               child: labels.isEmpty
                   ? const Center(child: Text('Trūksta duomenų grafikui.'))
-                  : CustomPaint(
-                      painter: _TrendPainter(
-                        expenses: expenses,
-                        gains: gains,
-                        net: net,
-                        labels: labels,
-                        labelColor:
-                            Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      child: const SizedBox.expand(),
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final size = constraints.biggest;
+                        final geometry = _geometryFor(
+                          size,
+                          scheme.onSurfaceVariant,
+                        );
+                        return RepaintBoundary(
+                          child: AnimatedBuilder(
+                            animation: _progress,
+                            builder: (context, _) {
+                              return CustomPaint(
+                                size: size,
+                                painter: _TrendPainter(
+                                  geometry: geometry,
+                                  progress: _progress.value,
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
             ),
             const SizedBox(height: 12),
@@ -77,9 +189,9 @@ class TrendChart extends StatelessWidget {
               spacing: 16,
               runSpacing: 6,
               children: [
-                _ChartLegend(color: Color(0xFF1B7F5A), label: 'Įplaukos'),
-                _ChartLegend(color: Color(0xFFC9783A), label: 'Sąnaudos'),
-                _ChartLegend(color: Color(0xFFC9A227), label: 'Grynasis'),
+                _ChartLegend(color: AppColors.income, label: 'Įplaukos'),
+                _ChartLegend(color: AppColors.expense, label: 'Sąnaudos'),
+                _ChartLegend(color: AppColors.net, label: 'Grynasis'),
               ],
             ),
           ],
@@ -111,31 +223,66 @@ class _ChartLegend extends StatelessWidget {
   }
 }
 
-class _TrendPainter extends CustomPainter {
-  _TrendPainter({
-    required this.expenses,
+class _SeriesPaths {
+  _SeriesPaths({required this.line, required this.area})
+      : metric = line.computeMetrics().toList(growable: false);
+
+  final Path line;
+  final Path area;
+  final List<PathMetric> metric;
+}
+
+class _LabelSlot {
+  const _LabelSlot(this.painter, this.offset);
+  final TextPainter painter;
+  final Offset offset;
+}
+
+class _ChartGeometry {
+  _ChartGeometry({
+    required this.chart,
     required this.gains,
+    required this.expenses,
     required this.net,
-    required this.labels,
-    required this.labelColor,
+    required this.netMetrics,
+    required this.xLabels,
+    required this.yMax,
+    required this.yMaxOffset,
   });
 
-  final List<double> expenses;
-  final List<double> gains;
-  final List<double> net;
-  final List<String> labels;
-  final Color labelColor;
+  final Rect chart;
+  final _SeriesPaths gains;
+  final _SeriesPaths expenses;
+  final Path net;
+  final List<PathMetric> netMetrics;
+  final List<_LabelSlot> xLabels;
+  final TextPainter yMax;
+  final Offset yMaxOffset;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (labels.isEmpty) return;
-    const left = 36.0;
-    const bottom = 22.0;
+  void dispose() {
+    for (final slot in xLabels) {
+      slot.painter.dispose();
+    }
+    yMax.dispose();
+  }
+
+  static _ChartGeometry build({
+    required Size size,
+    required List<double> expenses,
+    required List<double> gains,
+    required List<double> net,
+    required List<String> labels,
+    required Color labelColor,
+  }) {
+    const top = 18.0;
+    const right = 10.0;
+    const left = 44.0;
+    const bottom = 28.0;
     final chart = Rect.fromLTWH(
       left,
-      8,
-      size.width - left - 8,
-      size.height - bottom - 8,
+      top,
+      math.max(8, size.width - left - right),
+      math.max(8, size.height - top - bottom),
     );
     final maxValue = [
       ...expenses,
@@ -143,20 +290,18 @@ class _TrendPainter extends CustomPainter {
       ...net.map((v) => v.abs()),
     ].fold<double>(1, (m, v) => v > m ? v : m);
 
-    final grid = Paint()
-      ..color = const Color(0xFFE8E2D6)
-      ..strokeWidth = 1;
-    for (var i = 0; i <= 3; i++) {
-      final y = chart.top + chart.height * i / 3;
-      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), grid);
-    }
+    final gainPaths = _series(chart, gains, maxValue);
+    final expensePaths = _series(chart, expenses, maxValue);
+    final netLine = _smoothLine(_points(chart, net, maxValue));
+    final netMetrics = netLine.computeMetrics().toList(growable: false);
 
-    _area(canvas, chart, gains, maxValue, const Color(0xFF1B7F5A));
-    _area(canvas, chart, expenses, maxValue, const Color(0xFFC9783A));
-    _line(canvas, chart, net, maxValue, const Color(0xFFC9A227));
-
-    final textStyle = TextStyle(color: labelColor, fontSize: 10);
+    final textStyle = TextStyle(
+      color: labelColor,
+      fontSize: 10,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     final step = labels.length <= 6 ? 1 : (labels.length / 6).ceil();
+    final xLabels = <_LabelSlot>[];
     for (var i = 0; i < labels.length; i += step) {
       final x = labels.length == 1
           ? chart.center.dx
@@ -164,102 +309,194 @@ class _TrendPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(text: labels[i], style: textStyle),
         textDirection: TextDirection.ltr,
-      )..layout(maxWidth: 64);
-      tp.paint(canvas, Offset(x - tp.width / 2, chart.bottom + 4));
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: 72);
+      var dx = x - tp.width / 2;
+      dx = dx.clamp(0.0, math.max(0.0, size.width - tp.width));
+      xLabels.add(_LabelSlot(tp, Offset(dx, chart.bottom + 6)));
     }
 
-    final maxLabel = TextPainter(
+    final yMax = TextPainter(
       text: TextSpan(text: _axis(maxValue), style: textStyle),
       textDirection: TextDirection.ltr,
-    )..layout();
-    maxLabel.paint(canvas, Offset(0, chart.top - 2));
+      maxLines: 1,
+    )..layout(maxWidth: left - 4);
+    final yMaxOffset = Offset(0, math.max(0, chart.top - 2));
+
+    return _ChartGeometry(
+      chart: chart,
+      gains: gainPaths,
+      expenses: expensePaths,
+      net: netLine,
+      netMetrics: netMetrics,
+      xLabels: xLabels,
+      yMax: yMax,
+      yMaxOffset: yMaxOffset,
+    );
   }
 
-  String _axis(double value) {
+  static String _axis(double value) {
     if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}k';
     return formatEur(value).replaceAll('\u00A0', ' ').split(',').first;
   }
 
-  void _area(
-    Canvas canvas,
-    Rect chart,
-    List<double> values,
-    double maxValue,
-    Color color,
-  ) {
-    if (values.isEmpty) return;
-    final path = Path();
-    final line = Path();
-    for (var i = 0; i < values.length; i++) {
-      final offset = _point(chart, i, values.length, values[i], maxValue);
-      if (i == 0) {
-        path.moveTo(offset.dx, chart.bottom);
-        path.lineTo(offset.dx, offset.dy);
-        line.moveTo(offset.dx, offset.dy);
-      } else {
-        path.lineTo(offset.dx, offset.dy);
-        line.lineTo(offset.dx, offset.dy);
-      }
+  static List<Offset> _points(Rect chart, List<double> values, double maxValue) {
+    if (values.isEmpty) return const [];
+    final n = values.length;
+    return [
+      for (var i = 0; i < n; i++)
+        Offset(
+          n == 1 ? chart.center.dx : chart.left + chart.width * i / (n - 1),
+          chart.bottom -
+              chart.height * (values[i] / maxValue).clamp(0.0, 1.0),
+        ),
+    ];
+  }
+
+  static _SeriesPaths _series(Rect chart, List<double> values, double maxValue) {
+    final points = _points(chart, values, maxValue);
+    final line = _smoothLine(points);
+    final area = Path.from(line);
+    if (points.isNotEmpty) {
+      area
+        ..lineTo(points.last.dx, chart.bottom)
+        ..lineTo(points.first.dx, chart.bottom)
+        ..close();
     }
-    path.lineTo(
-      _point(chart, values.length - 1, values.length, 0, maxValue).dx,
-      chart.bottom,
+    return _SeriesPaths(line: line, area: area);
+  }
+
+  static Path _smoothLine(List<Offset> points) {
+    final path = Path();
+    if (points.isEmpty) return path;
+    path.moveTo(points.first.dx, points.first.dy);
+    if (points.length == 1) return path;
+    if (points.length == 2) {
+      path.lineTo(points[1].dx, points[1].dy);
+      return path;
+    }
+    for (var i = 0; i < points.length - 1; i++) {
+      final p0 = i == 0 ? points[i] : points[i - 1];
+      final p1 = points[i];
+      final p2 = points[i + 1];
+      final p3 = i + 2 < points.length ? points[i + 2] : p2;
+      final cp1 = Offset(
+        p1.dx + (p2.dx - p0.dx) / 6,
+        p1.dy + (p2.dy - p0.dy) / 6,
+      );
+      final cp2 = Offset(
+        p2.dx - (p3.dx - p1.dx) / 6,
+        p2.dy - (p3.dy - p1.dy) / 6,
+      );
+      path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
+    }
+    return path;
+  }
+}
+
+class _TrendPainter extends CustomPainter {
+  _TrendPainter({
+    required this.geometry,
+    required this.progress,
+  });
+
+  final _ChartGeometry geometry;
+  final double progress;
+
+  static final _gridPaint = Paint()
+    ..color = AppColors.grid
+    ..strokeWidth = 1
+    ..style = PaintingStyle.stroke;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final chart = geometry.chart;
+    for (var i = 0; i <= 3; i++) {
+      final y = chart.top + chart.height * i / 3;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), _gridPaint);
+    }
+
+    final reveal = Rect.fromLTWH(
+      chart.left,
+      chart.top - 3,
+      chart.width * progress.clamp(0.0, 1.0),
+      chart.height + 6,
     );
-    path.close();
+    canvas.save();
+    canvas.clipRect(reveal);
+    _fill(canvas, geometry.gains.area, AppColors.income);
+    _stroke(canvas, geometry.gains.line, AppColors.income, 2.4);
+    _fill(canvas, geometry.expenses.area, AppColors.expense);
+    _stroke(canvas, geometry.expenses.line, AppColors.expense, 2.4);
+    _stroke(canvas, geometry.net, AppColors.net, 2.0);
+    canvas.restore();
+
+    if (progress > 0.04) {
+      _dot(canvas, geometry.gains.metric, AppColors.income);
+      _dot(canvas, geometry.expenses.metric, AppColors.expense);
+      _dot(canvas, geometry.netMetrics, AppColors.net);
+    }
+
+    for (final slot in geometry.xLabels) {
+      slot.painter.paint(canvas, slot.offset);
+    }
+    geometry.yMax.paint(canvas, geometry.yMaxOffset);
+  }
+
+  void _fill(Canvas canvas, Path path, Color color) {
     canvas.drawPath(
       path,
       Paint()
-        ..color = color.withValues(alpha: 0.16)
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.28),
+            color.withValues(alpha: 0.04),
+          ],
+        ).createShader(geometry.chart)
         ..style = PaintingStyle.fill,
     );
+  }
+
+  void _stroke(Canvas canvas, Path path, Color color, double width) {
     canvas.drawPath(
-      line,
+      path,
       Paint()
         ..color = color
-        ..strokeWidth = 2.2
+        ..strokeWidth = width
         ..style = PaintingStyle.stroke
-        ..strokeJoin = StrokeJoin.round,
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true,
     );
   }
 
-  void _line(
-    Canvas canvas,
-    Rect chart,
-    List<double> values,
-    double maxValue,
-    Color color,
-  ) {
-    if (values.isEmpty) return;
-    final line = Path();
-    for (var i = 0; i < values.length; i++) {
-      final offset = _point(chart, i, values.length, values[i], maxValue);
-      if (i == 0) {
-        line.moveTo(offset.dx, offset.dy);
-      } else {
-        line.lineTo(offset.dx, offset.dy);
-      }
+  void _dot(Canvas canvas, List<PathMetric> metrics, Color color) {
+    for (final metric in metrics) {
+      if (metric.length == 0) continue;
+      final tangent = metric.getTangentForOffset(metric.length * progress);
+      if (tangent == null) continue;
+      canvas.drawCircle(
+        tangent.position,
+        3.6,
+        Paint()..color = color,
+      );
+      canvas.drawCircle(
+        tangent.position,
+        3.6,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4,
+      );
     }
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = color
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke,
-    );
-  }
-
-  Offset _point(Rect chart, int i, int n, double value, double maxValue) {
-    final t = n == 1 ? 0.5 : i / (n - 1);
-    final x = chart.left + chart.width * t;
-    final y = chart.bottom - chart.height * (value / maxValue).clamp(0.0, 1.0);
-    return Offset(x, y);
   }
 
   @override
   bool shouldRepaint(covariant _TrendPainter oldDelegate) {
-    return oldDelegate.expenses != expenses ||
-        oldDelegate.gains != gains ||
-        oldDelegate.net != net ||
-        oldDelegate.labels != labels;
+    return oldDelegate.progress != progress ||
+        !identical(oldDelegate.geometry, geometry);
   }
 }

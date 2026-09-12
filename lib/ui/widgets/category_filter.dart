@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/category.dart';
 import '../../models/spend_tag.dart';
+import 'chip_row.dart';
 
 class CategoryFilterBar extends StatelessWidget {
   const CategoryFilterBar({
@@ -25,10 +26,9 @@ class CategoryFilterBar extends StatelessWidget {
         DropdownButtonFormField<String>(
           // ignore: deprecated_member_use
           value: categoryId ?? '',
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Kategorija',
-            border: OutlineInputBorder(),
-            isDense: true,
           ),
           items: [
             const DropdownMenuItem(value: '', child: Text('Visos kategorijos')),
@@ -38,8 +38,7 @@ class CategoryFilterBar extends StatelessWidget {
           onChanged: (v) => onCategory(v == null || v.isEmpty ? null : v),
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
+        ChipRow(
           children: [
             ChoiceChip(
               label: const Text('Visos žymos'),

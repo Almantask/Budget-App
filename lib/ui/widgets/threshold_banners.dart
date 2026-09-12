@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/notice.dart';
 import '../theme.dart';
+import 'animated_number.dart';
 
 class ThresholdBanners extends StatelessWidget {
   const ThresholdBanners({super.key, required this.alerts});
@@ -25,8 +26,8 @@ class ThresholdBanners extends StatelessWidget {
                 leading: Icon(_icon(alert.level), color: _color(alert.level)),
                 title: Text('${alert.label} · ${_label(alert.level)}'),
                 subtitle: Text(alert.message),
-                trailing: Text(
-                  '${(alert.ratio * 100).round()}%',
+                trailing: AnimatedPercent(
+                  value: alert.ratio,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: _color(alert.level),
@@ -92,8 +93,8 @@ class AnomalyList extends StatelessWidget {
                 ),
                 title: Text(item.label),
                 subtitle: Text(item.message),
-                trailing: Text(
-                  formatEur(item.amount),
+                trailing: AnimatedEur(
+                  value: item.amount,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),

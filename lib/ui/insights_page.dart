@@ -7,7 +7,10 @@ import '../models/insight.dart';
 import '../models/notice.dart';
 import '../state/budget_controller.dart';
 import '../services/dates.dart';
+import 'layout.dart';
+import 'motion.dart';
 import 'theme.dart';
+import 'widgets/animated_number.dart';
 import 'widgets/period_selector.dart';
 import 'widgets/person_filter.dart';
 
@@ -24,7 +27,7 @@ class InsightsPage extends StatelessWidget {
     final currentMonth = controller.viewMonth;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      padding: AppLayout.pagePadding(context),
       children: [
         PeriodSelector(
           value: controller.period,
@@ -124,7 +127,9 @@ class InsightsPage extends StatelessWidget {
             ),
         ],
         const SizedBox(height: 20),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
             FilledButton.icon(
               onPressed: () async {
@@ -153,9 +158,11 @@ class InsightsPage extends StatelessWidget {
               leading: const Icon(Icons.tips_and_updates_outlined),
               title: Text(tip.title),
               subtitle: Text(tip.detail),
-              trailing: Text(
-                '${formatEur(tip.monthlySaving)}/mėn',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              trailing: FittedBox(
+                child: Text(
+                  '${formatEur(tip.monthlySaving)}/mėn',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ),
@@ -172,8 +179,8 @@ class InsightsPage extends StatelessWidget {
               }),
               title: Text(item.title),
               subtitle: Text(item.detail),
-              trailing: Text(
-                formatEur(item.amount),
+              trailing: AnimatedEur(
+                value: item.amount,
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
@@ -214,23 +221,36 @@ class _StretchCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(stretch.reason),
             const SizedBox(height: 12),
-            LinearProgressIndicator(value: progress, minHeight: 10),
+            _AnimatedBar(value: progress, minHeight: 10),
             const SizedBox(height: 8),
-            Text(
-              '${formatEur(net)} iš ${formatEur(stretch.target)}',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+            Wrap(
+              spacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                AnimatedEur(
+                  value: net,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  'iš ${formatEur(stretch.target)}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: Text('Lygis ${level.level} · ${level.totalXp} XP'),
+                  child: Text(
+                    'Lygis ${level.level} · ${level.totalXp} XP',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 Text('Serija: $streak d.'),
               ],
             ),
             const SizedBox(height: 6),
-            LinearProgressIndicator(value: level.progress, minHeight: 6),
+            _AnimatedBar(value: level.progress, minHeight: 6),
           ],
         ),
       ),
@@ -257,7 +277,7 @@ class _QuestTile extends StatelessWidget {
           children: [
             Text(quest.detail),
             const SizedBox(height: 6),
-            LinearProgressIndicator(value: ratio, minHeight: 6),
+            _AnimatedBar(value: ratio, minHeight: 6),
           ],
         ),
         isThreeLine: true,
@@ -266,3 +286,26 @@ class _QuestTile extends StatelessWidget {
     );
   }
 }
+
+class _AnimatedBar extends StatelessWidget {
+  const _AnimatedBar({required this.value, required this.minHeight});
+
+  final double value;
+  final double minHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
+      duration: AppMotion.of(context, AppMotion.progress),
+      curve: AppMotion.easeOut,
+      builder: (context, v, _) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(value: v, minHeight: minHeight),
+        );
+      },
+    );
+  }
+}
+

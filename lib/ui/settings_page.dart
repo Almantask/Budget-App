@@ -5,6 +5,7 @@ import '../banks/bank_connector.dart';
 import '../models/budget_limit.dart';
 import '../models/category.dart';
 import '../state/budget_controller.dart';
+import 'layout.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -58,7 +59,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final controller = context.watch<BudgetController>();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      key: const PageStorageKey<String>('settings-scroll'),
+      padding: AppLayout.pagePadding(context),
       children: [
         Text('Šeima', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),

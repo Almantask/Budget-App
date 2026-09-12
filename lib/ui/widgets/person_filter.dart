@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/person.dart';
+import 'chip_row.dart';
 
 class PersonFilterBar extends StatelessWidget {
   const PersonFilterBar({
@@ -21,8 +22,7 @@ class PersonFilterBar extends StatelessWidget {
       (household.me.id, household.me.name),
       (household.partner.id, household.partner.name),
     ];
-    return Wrap(
-      spacing: 8,
+    return ChipRow(
       children: [
         for (final option in options)
           ChoiceChip(

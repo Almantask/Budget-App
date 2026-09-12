@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/period.dart';
+import 'chip_row.dart';
 
 class PeriodSelector extends StatelessWidget {
   const PeriodSelector({
@@ -14,9 +15,7 @@ class PeriodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return ChipRow(
       children: [
         for (final kind in PeriodKind.values)
           ChoiceChip(
