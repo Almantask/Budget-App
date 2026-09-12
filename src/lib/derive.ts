@@ -10,6 +10,7 @@ import {
   stretchHits,
 } from './gamification.ts'
 import { categoryBreakdown, fullHistory, monthlySeries, trimSeries, weeklySeries } from './analytics.ts'
+import { findSpendingAnomalies } from './anomalies.ts'
 import { monthKey, toIso } from './dates.ts'
 import type { AppState, ThresholdAlert } from '../types.ts'
 
@@ -42,6 +43,7 @@ export function deriveView(state: AppState, viewMonth: string, now = new Date())
   const level = levelFromXp(xp)
   const expenses = categoryBreakdown(state.transactions, state.categories, viewMonth, 'expense')
   const gains = categoryBreakdown(state.transactions, state.categories, viewMonth, 'income')
+  const anomalies = findSpendingAnomalies(state, viewMonth, today)
 
   return {
     today,
@@ -57,6 +59,7 @@ export function deriveView(state: AppState, viewMonth: string, now = new Date())
     level,
     expenses,
     gains,
+    anomalies,
     stretchProgress: Math.min(1, Math.max(0, monthPoint.net) / stretch.target),
   }
 }

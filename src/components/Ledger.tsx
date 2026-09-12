@@ -6,8 +6,15 @@ import { TransactionForm } from './TransactionForm.tsx'
 import type { TransactionKind } from '../types.ts'
 
 export function Ledger() {
-  const { state, viewMonth, deleteTransaction } = useBudget()
+  const { state, viewMonth, deleteTransaction, derived } = useBudget()
   const [kind, setKind] = useState<'all' | TransactionKind>('all')
+  const flaggedIds = useMemo(() => {
+    return new Set(
+      derived.anomalies
+        .map((anomaly) => anomaly.transactionId)
+        .filter((id): id is string => Boolean(id)),
+    )
+  }, [derived.anomalies])
   const rows = useMemo(() => {
     return state.transactions
       .filter((transaction) => transaction.date.startsWith(viewMonth))
@@ -41,11 +48,15 @@ export function Ledger() {
           <div className="list">
             {rows.map((transaction) => {
               const category = state.categories.find((item) => item.id === transaction.categoryId)
+              const chargeFlag = flaggedIds.has(transaction.id)
               return (
-                <article className="tx" key={transaction.id}>
+                <article className={`tx ${chargeFlag ? 'anomaly' : ''}`} key={transaction.id}>
                   <time>{transaction.date.slice(8)}</time>
                   <div>
-                    <b>{category?.name ?? 'Unknown'}</b>
+                    <b>
+                      {category?.name ?? 'Unknown'}
+                      {chargeFlag ? <span className="chip unusual">unusual</span> : null}
+                    </b>
                     <small>{transaction.note || transaction.kind}</small>
                   </div>
                   <strong className={transaction.kind === 'income' ? 'up' : 'down'}>

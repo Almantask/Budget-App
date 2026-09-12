@@ -95,6 +95,19 @@ export function spentInMonth(
   })
 }
 
+export function spentThrough(
+  transactions: Transaction[],
+  month: string,
+  throughDate: string,
+  categoryId?: string,
+): number {
+  return sumBy(transactions, (transaction) => {
+    if (transaction.kind !== 'expense') return false
+    if (!inMonth(transaction, month) || transaction.date > throughDate) return false
+    return categoryId ? transaction.categoryId === categoryId : true
+  })
+}
+
 export function categoryBreakdown(
   transactions: Transaction[],
   categories: Category[],

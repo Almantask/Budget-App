@@ -1,6 +1,7 @@
 import { formatMoney, formatSigned } from '../lib/money.ts'
 import { monthLabel } from '../lib/dates.ts'
 import { useBudget } from '../store/BudgetContext.tsx'
+import { AnomalyList } from './AnomalyList.tsx'
 import { Alerts } from './Alerts.tsx'
 import { TransactionForm } from './TransactionForm.tsx'
 import { TrendChart, WeeklyBars } from './TrendChart.tsx'
@@ -14,7 +15,8 @@ export function Overview() {
   return (
     <div>
       <Alerts alerts={derived.alerts} />
-      <div className="grid stats">
+      <AnomalyList anomalies={derived.anomalies} onOpenLedger={() => setTab('ledger')} />
+      <div className="grid stats" style={{ marginTop: 16 }}>
         <article className="card stat">
           <span className="kicker">Gains</span>
           <strong className="up">{formatMoney(derived.monthPoint.gains)}</strong>
@@ -96,11 +98,16 @@ export function Overview() {
             <p className="empty">No expenses logged yet.</p>
           ) : (
             <div className="rows">
-              {derived.expenses.map(({ category, total }) => (
+              {derived.expenses.map(({ category, total }) => {
+                const flagged = derived.anomalies.some((item) => item.categoryId === category.id)
+                return (
                 <div className="row" key={category.id}>
                   <span className="swatch" style={{ background: category.color }} />
                   <div>
-                    <b>{category.name}</b>
+                    <b>
+                      {category.name}
+                      {flagged ? <span className="chip unusual">unusual</span> : null}
+                    </b>
                     <div className="bar">
                       <i
                         style={{
@@ -112,7 +119,8 @@ export function Overview() {
                   </div>
                   <span>{formatMoney(total)}</span>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>

@@ -116,3 +116,21 @@ export type LevelProgress = {
 }
 
 export type Tab = 'overview' | 'ledger' | 'budgets' | 'quests'
+
+export type AnomalyKind = 'category-spike' | 'large-charge' | 'month-spike'
+
+export type AnomalySeverity = 'watch' | 'unusual'
+
+export type SpendingAnomaly = {
+  id: string
+  kind: AnomalyKind
+  severity: AnomalySeverity
+  categoryId: BudgetScope
+  label: string
+  month: string
+  amount: number
+  baseline: number
+  multiple: number
+  message: string
+  transactionId?: string
+}

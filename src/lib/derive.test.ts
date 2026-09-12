@@ -15,5 +15,17 @@ describe('demo September 2026', () => {
     expect(view.alerts.some((alert) => alert.categoryId === 'housing')).toBe(false)
     expect(view.quests).toHaveLength(4)
     expect(view.achievements.some((achievement) => achievement.unlocked)).toBe(true)
+    expect(view.anomalies.length).toBeGreaterThan(0)
+  })
+
+  it('flags June holiday spending as unusual versus quieter months', () => {
+    const now = new Date(2026, 8, 12)
+    const state = createDemoState(now)
+    const june = deriveView(state, '2026-06', now)
+    expect(
+      june.anomalies.some(
+        (item) => item.categoryId === 'fun' || item.categoryId === 'shopping' || item.categoryId === 'dining',
+      ),
+    ).toBe(true)
   })
 })
