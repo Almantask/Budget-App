@@ -62,122 +62,198 @@ class BudgetController extends ChangeNotifier {
   bool syncing = false;
   bool trendWeekly = false;
   String? statusMessage;
+  _ViewCache? _viewCache;
+
+  Object _viewToken() {
+    final n = now();
+    return Object.hash(
+      identityHashCode(state),
+      identityHashCode(filters),
+      period,
+      DateTime(n.year, n.month, n.day),
+    );
+  }
+
+  _ViewCache _view() {
+    final token = _viewToken();
+    final cached = _viewCache;
+    if (cached != null && cached.token == token) return cached;
+    return _viewCache = _ViewCache(token);
+  }
+
+  void _invalidateView() => _viewCache = null;
+
+  List<MoneyTx> get _filteredAll {
+    final view = _view();
+    return view.filtered ??=
+        analytics.applyFilters(state.transactions, filters);
+  }
 
   List<MoneyTx> get visibleTransactions {
-    final range = currentRange;
-    return analytics.applyFilters(
-      state.transactions.where((t) => range.contains(t.bookedAt)).toList(),
-      filters,
-    )..sort((a, b) => b.bookedAt.compareTo(a.bookedAt));
+    final view = _view();
+    return view.visibleTransactions ??= () {
+      final range = currentRange;
+      return _filteredAll.where((t) => range.contains(t.bookedAt)).toList()
+        ..sort((a, b) => b.bookedAt.compareTo(a.bookedAt));
+    }();
   }
 
   DateRange get currentRange {
-    return const PeriodResolver().resolve(
+    final view = _view();
+    return view.currentRange ??= const PeriodResolver().resolve(
       kind: period,
       now: now(),
       dataStart: analytics.earliest(state.transactions),
     );
   }
 
-  DateRange get previousRange => currentRange.previous;
+  DateRange get previousRange {
+    final view = _view();
+    return view.previousRange ??= currentRange.previous;
+  }
 
   PeriodSnapshot get snapshot {
-    final filtered = analytics.applyFilters(state.transactions, filters);
-    return analytics.snapshot(
-      txs: filtered,
+    final view = _view();
+    return view.snapshot ??= analytics.snapshot(
+      txs: _filteredAll,
       current: currentRange,
       previous: previousRange,
     );
   }
 
-  List<SavingTip> get savingTips => insights.savingTips(
-        txs: analytics.applyFilters(state.transactions, filters),
-        snapshot: snapshot,
-        period: period,
-      );
+  List<SavingTip> get savingTips {
+    final view = _view();
+    return view.savingTips ??= insights.savingTips(
+      txs: _filteredAll,
+      snapshot: snapshot,
+      period: period,
+    );
+  }
 
-  List<BiggestValueItem> get biggestValue => insights.biggestValue(
-        txs: analytics.applyFilters(state.transactions, filters),
-        current: currentRange,
-      );
+  List<BiggestValueItem> get biggestValue {
+    final view = _view();
+    return view.biggestValue ??= insights.biggestValue(
+      txs: _filteredAll,
+      current: currentRange,
+    );
+  }
 
   String get viewMonth => monthKey(now());
 
-  List<ThresholdAlert> get thresholdAlerts => thresholds.collectAlerts(
-        txs: state.transactions,
-        budgets: state.budgets,
-        month: viewMonth,
-        today: now(),
-      );
-
-  List<SpendingAnomaly> get spendingAnomalies =>
-      anomalyEngine.findSpendingAnomalies(
-        txs: state.transactions,
-        viewMonth: viewMonth,
-        today: now(),
-      );
-
-  Set<String> get unusualTransactionIds => {
-        for (final item in spendingAnomalies)
-          if (item.transactionId != null) item.transactionId!,
-      };
-
-  List<MonthPoint> get trendMonths => analytics.trimSeries(
-        analytics.monthlySeries(state.transactions, viewMonth),
-      );
-
-  List<WeekPoint> get trendWeeks =>
-      analytics.weeklySeries(state.transactions, viewMonth);
-
-  MonthPoint get currentMonthPoint =>
-      analytics.monthTotals(state.transactions, viewMonth);
-
-  List<MonthPoint> get savingsHistory =>
-      analytics.fullHistory(state.transactions, viewMonth);
-
-  StretchGoal get stretchGoal =>
-      games.stretchGoalForMonth(savingsHistory, viewMonth);
-
-  List<StretchHit> get stretchHistory => games.stretchHits(savingsHistory);
-
-  List<Quest> get monthQuestList => games.monthQuests(
-        txs: state.transactions,
-        budgets: state.budgets,
-        month: viewMonth,
-        today: now(),
-        stretch: stretchGoal,
-        monthPoint: currentMonthPoint,
-        alerts: thresholdAlerts,
-      );
-
-  List<Achievement> get achievements => games.collectAchievements(
-        txs: state.transactions,
-        budgets: state.budgets,
-        today: now(),
-        history: savingsHistory,
-        hits: stretchHistory,
-      );
-
-  LevelProgress get levelProgress {
-    final uniqueDays =
-        state.transactions.map((tx) => dateKey(tx.bookedAt)).toSet().length;
-    final xp = games.computeXp(
-      transactionCount: state.transactions.where((tx) => !tx.isTransfer).length,
-      uniqueDays: uniqueDays,
-      hits: stretchHistory,
-      underBudgetMonths: games.pastUnderBudgetCount(
-        txs: state.transactions,
-        budgets: state.budgets,
-        history: savingsHistory,
-        today: now(),
-      ),
-      questsComplete: monthQuestList.where((quest) => quest.complete).length,
-      achievements: achievements,
+  List<ThresholdAlert> get thresholdAlerts {
+    final view = _view();
+    return view.thresholdAlerts ??= thresholds.collectAlerts(
+      txs: state.transactions,
+      budgets: state.budgets,
+      month: viewMonth,
+      today: now(),
     );
-    return games.levelFromXp(xp);
   }
 
-  int get loggingStreak => games.loggingStreak(state.transactions, now());
+  List<SpendingAnomaly> get spendingAnomalies {
+    final view = _view();
+    return view.spendingAnomalies ??= anomalyEngine.findSpendingAnomalies(
+      txs: state.transactions,
+      viewMonth: viewMonth,
+      today: now(),
+    );
+  }
+
+  Set<String> get unusualTransactionIds {
+    final view = _view();
+    return view.unusualTransactionIds ??= {
+      for (final item in spendingAnomalies)
+        if (item.transactionId != null) item.transactionId!,
+    };
+  }
+
+  List<MonthPoint> get trendMonths {
+    final view = _view();
+    return view.trendMonths ??= analytics.trimSeries(
+      analytics.monthlySeries(state.transactions, viewMonth),
+    );
+  }
+
+  List<WeekPoint> get trendWeeks {
+    final view = _view();
+    return view.trendWeeks ??=
+        analytics.weeklySeries(state.transactions, viewMonth);
+  }
+
+  MonthPoint get currentMonthPoint {
+    final view = _view();
+    return view.currentMonthPoint ??=
+        analytics.monthTotals(state.transactions, viewMonth);
+  }
+
+  List<MonthPoint> get savingsHistory {
+    final view = _view();
+    return view.savingsHistory ??=
+        analytics.fullHistory(state.transactions, viewMonth);
+  }
+
+  StretchGoal get stretchGoal {
+    final view = _view();
+    return view.stretchGoal ??=
+        games.stretchGoalForMonth(savingsHistory, viewMonth);
+  }
+
+  List<StretchHit> get stretchHistory {
+    final view = _view();
+    return view.stretchHistory ??= games.stretchHits(savingsHistory);
+  }
+
+  List<Quest> get monthQuestList {
+    final view = _view();
+    return view.monthQuestList ??= games.monthQuests(
+      txs: state.transactions,
+      budgets: state.budgets,
+      month: viewMonth,
+      today: now(),
+      stretch: stretchGoal,
+      monthPoint: currentMonthPoint,
+      alerts: thresholdAlerts,
+    );
+  }
+
+  List<Achievement> get achievements {
+    final view = _view();
+    return view.achievements ??= games.collectAchievements(
+      txs: state.transactions,
+      budgets: state.budgets,
+      today: now(),
+      history: savingsHistory,
+      hits: stretchHistory,
+    );
+  }
+
+  LevelProgress get levelProgress {
+    final view = _view();
+    return view.levelProgress ??= () {
+      final uniqueDays =
+          state.transactions.map((tx) => dateKey(tx.bookedAt)).toSet().length;
+      final xp = games.computeXp(
+        transactionCount:
+            state.transactions.where((tx) => !tx.isTransfer).length,
+        uniqueDays: uniqueDays,
+        hits: stretchHistory,
+        underBudgetMonths: games.pastUnderBudgetCount(
+          txs: state.transactions,
+          budgets: state.budgets,
+          history: savingsHistory,
+          today: now(),
+        ),
+        questsComplete: monthQuestList.where((quest) => quest.complete).length,
+        achievements: achievements,
+      );
+      return games.levelFromXp(xp);
+    }();
+  }
+
+  int get loggingStreak {
+    final view = _view();
+    return view.loggingStreak ??= games.loggingStreak(state.transactions, now());
+  }
 
   List<ThresholdNotice> get unreadNotices =>
       state.notices.where((notice) => !notice.read).toList();
@@ -196,6 +272,7 @@ class BudgetController extends ChangeNotifier {
       await maybeDailySync();
     }
     loading = false;
+    _invalidateView();
     notifyListeners();
   }
 
@@ -406,6 +483,7 @@ class BudgetController extends ChangeNotifier {
     final txs = state.transactions.map((t) => t.id == tx.id ? tx : t).toList();
     state = state.copyWith(transactions: txs);
     await _store.save(state);
+    _invalidateView();
     notifyListeners();
   }
 
@@ -417,6 +495,7 @@ class BudgetController extends ChangeNotifier {
       ),
     );
     await _store.save(state);
+    _invalidateView();
     notifyListeners();
   }
 
@@ -449,11 +528,13 @@ class BudgetController extends ChangeNotifier {
 
   void setPeriod(PeriodKind kind) {
     period = kind;
+    _invalidateView();
     notifyListeners();
   }
 
   void setPersonFilter(String personId) {
     filters = filters.copyWith(personId: personId);
+    _invalidateView();
     notifyListeners();
   }
 
@@ -462,16 +543,19 @@ class BudgetController extends ChangeNotifier {
       categoryId: categoryId,
       clearCategory: categoryId == null,
     );
+    _invalidateView();
     notifyListeners();
   }
 
   void setTagFilter(SpendTag? tag) {
     filters = filters.copyWith(tag: tag, clearTag: tag == null);
+    _invalidateView();
     notifyListeners();
   }
 
   void setQuery(String query) {
     filters = filters.copyWith(query: query);
+    _invalidateView();
     notifyListeners();
   }
 
@@ -507,6 +591,7 @@ class BudgetController extends ChangeNotifier {
     }
     state = state.copyWith(budgets: next);
     await _store.save(state);
+    _invalidateView();
     notifyListeners();
   }
 
@@ -550,6 +635,7 @@ class BudgetController extends ChangeNotifier {
     } else {
       statusMessage = '${fresh.length} nauji biudžeto įspėjimai.';
     }
+    _invalidateView();
     notifyListeners();
   }
 
@@ -558,3 +644,30 @@ class BudgetController extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+class _ViewCache {
+  _ViewCache(this.token);
+
+  final Object token;
+  DateRange? currentRange;
+  DateRange? previousRange;
+  List<MoneyTx>? filtered;
+  List<MoneyTx>? visibleTransactions;
+  PeriodSnapshot? snapshot;
+  List<MonthPoint>? trendMonths;
+  List<WeekPoint>? trendWeeks;
+  List<ThresholdAlert>? thresholdAlerts;
+  List<SpendingAnomaly>? spendingAnomalies;
+  Set<String>? unusualTransactionIds;
+  List<SavingTip>? savingTips;
+  List<BiggestValueItem>? biggestValue;
+  MonthPoint? currentMonthPoint;
+  List<MonthPoint>? savingsHistory;
+  StretchGoal? stretchGoal;
+  List<StretchHit>? stretchHistory;
+  List<Quest>? monthQuestList;
+  List<Achievement>? achievements;
+  LevelProgress? levelProgress;
+  int? loggingStreak;
+}
+

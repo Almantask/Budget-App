@@ -29,6 +29,7 @@ class CategoryFilterBar extends StatelessWidget {
           isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Kategorija',
+            isDense: true,
           ),
           items: [
             const DropdownMenuItem(value: '', child: Text('Visos kategorijos')),

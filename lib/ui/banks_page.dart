@@ -28,18 +28,21 @@ class BanksPage extends StatelessWidget {
           onChanged: controller.setAutoSync,
         ),
         const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: controller.syncing
-              ? null
-              : () => controller.syncAll(triggeredBy: 'Rankinis sync'),
-          icon: controller.syncing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.sync),
-          label: const Text('Sinchronizuoti dabar'),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: controller.syncing
+                ? null
+                : () => controller.syncAll(triggeredBy: 'Rankinis sync'),
+            icon: controller.syncing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+            label: const Text('Sinchronizuoti dabar'),
+          ),
         ),
         const SizedBox(height: 16),
         for (final bank in BankId.values)
@@ -116,65 +119,10 @@ class _BankCard extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.tonal(
-                  onPressed: () async {
-                    final uri = await controller.connectBank(
-                      bank,
-                      personId: account?.personId ?? Person.meId,
-                    );
-                    if (uri != null) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    }
-                  },
-                  child: Text(status == AccountLinkStatus.disconnected
-                      ? 'Susieti per Open Banking'
-                      : 'Perjungti ryšį'),
-                ),
-                if (status == AccountLinkStatus.pending) ...[
-                  if (account?.authorizationUrl != null)
-                    OutlinedButton(
-                      onPressed: () async {
-                        await launchUrl(
-                          Uri.parse(account!.authorizationUrl!),
-                          mode: LaunchMode.externalApplication,
-                        );
-                      },
-                      child: const Text('Atidaryti sutikimą'),
-                    ),
-                  OutlinedButton(
-                    onPressed: () => _pasteCallback(context, bank),
-                    child: const Text('Įklijuoti sutikimo nuorodą'),
-                  ),
-                ],
-                OutlinedButton(
-                  onPressed: () async {
-                    final err = await controller.pickAndImportCsv(
-                      bank: bank,
-                      personId: account?.personId ?? Person.meId,
-                    );
-                    if (err != null && context.mounted) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(SnackBar(content: Text(err)));
-                    }
-                  },
-                  child: const Text('CSV importas'),
-                ),
-                if (controller.credentials.hasEnableBanking)
-                  TextButton(
-                    onPressed: () async {
-                      final uri = Uri.parse('https://enablebanking.com/');
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    },
-                    child: const Text('Enable Banking'),
-                  ),
-              ],
+            _BankActions(
+              bank: bank,
+              account: account,
+              status: status,
             ),
           ],
         ),
@@ -188,6 +136,91 @@ class _BankCard extends StatelessWidget {
         AccountLinkStatus.connected => 'Prijungtas (Enable Banking)',
         AccountLinkStatus.demo => 'Demo / CSV režimas',
       };
+}
+
+class _BankActions extends StatelessWidget {
+  const _BankActions({
+    required this.bank,
+    required this.account,
+    required this.status,
+  });
+
+  final BankId bank;
+  final ConnectedAccount? account;
+  final AccountLinkStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<BudgetController>();
+    final phone = AppLayout.isPhone(context);
+    final children = <Widget>[
+      FilledButton.tonal(
+        onPressed: () async {
+          final uri = await controller.connectBank(
+            bank,
+            personId: account?.personId ?? Person.meId,
+          );
+          if (uri != null) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+        child: Text(
+          status == AccountLinkStatus.disconnected
+              ? 'Susieti per Open Banking'
+              : 'Perjungti ryšį',
+        ),
+      ),
+      if (status == AccountLinkStatus.pending) ...[
+        if (account?.authorizationUrl != null)
+          OutlinedButton(
+            onPressed: () async {
+              await launchUrl(
+                Uri.parse(account!.authorizationUrl!),
+                mode: LaunchMode.externalApplication,
+              );
+            },
+            child: const Text('Atidaryti sutikimą'),
+          ),
+        OutlinedButton(
+          onPressed: () => _pasteCallback(context, bank),
+          child: const Text('Įklijuoti sutikimo nuorodą'),
+        ),
+      ],
+      OutlinedButton(
+        onPressed: () async {
+          final err = await controller.pickAndImportCsv(
+            bank: bank,
+            personId: account?.personId ?? Person.meId,
+          );
+          if (err != null && context.mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(err)));
+          }
+        },
+        child: const Text('CSV importas'),
+      ),
+      if (controller.credentials.hasEnableBanking)
+        TextButton(
+          onPressed: () async {
+            final uri = Uri.parse('https://enablebanking.com/');
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          },
+          child: const Text('Enable Banking'),
+        ),
+    ];
+    if (phone) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            children[i],
+          ],
+        ],
+      );
+    }
+    return Wrap(spacing: 8, runSpacing: 8, children: children);
+  }
 }
 
 Future<void> _pasteCallback(BuildContext context, BankId bank) async {

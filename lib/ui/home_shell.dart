@@ -19,6 +19,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int index = 0;
+  final List<bool> _opened = List<bool>.filled(5, false);
 
   static const _pages = <Widget>[
     OverviewPage(),
@@ -67,6 +68,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _opened[0] = true;
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -83,26 +85,45 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     }
   }
 
+  void _select(int i) {
+    setState(() {
+      index = i;
+      _opened[i] = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<BudgetController>();
+    final loading = context.select((BudgetController c) => c.loading);
+    final syncing = context.select((BudgetController c) => c.syncing);
     final useRail = AppLayout.useNavigationRail(context);
-    final compact = AppLayout.isLandscape(context) || AppLayout.isShort(context);
+    final scheme = Theme.of(context).colorScheme;
 
-    final content = controller.loading
+    final content = loading
         ? const Center(child: CircularProgressIndicator())
-        : IndexedStack(index: index, children: _pages);
+        : IndexedStack(
+            index: index,
+            children: [
+              for (var i = 0; i < _pages.length; i++)
+                TickerMode(
+                  enabled: i == index,
+                  child: _opened[i] ? _pages[i] : const SizedBox.shrink(),
+                ),
+            ],
+          );
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: compact ? 48 : 56,
+        toolbarHeight: AppLayout.appBarHeight(context),
         title: Text(_titles[index]),
         actions: [
           _SyncButton(
-            syncing: controller.syncing,
-            onPressed: controller.syncing
+            syncing: syncing,
+            onPressed: syncing
                 ? null
-                : () => controller.syncAll(triggeredBy: 'Rankinis sync'),
+                : () => context
+                    .read<BudgetController>()
+                    .syncAll(triggeredBy: 'Rankinis sync'),
           ),
         ],
       ),
@@ -112,8 +133,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         child: useRail
             ? Row(
                 children: [
-                    _scrollableRail(AppLayout.isShort(context)),
-                  const VerticalDivider(width: 1, thickness: 1),
+                  ColoredBox(
+                    color: scheme.surface,
+                    child: _scrollableRail(AppLayout.isShort(context)),
+                  ),
+                  ColoredBox(
+                    color: scheme.outline,
+                    child: const SizedBox(width: 1.2, height: double.infinity),
+                  ),
                   Expanded(child: content),
                 ],
               )
@@ -121,10 +148,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ),
       bottomNavigationBar: useRail
           ? null
-          : NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: (i) => setState(() => index = i),
-              destinations: _destinations,
+          : Material(
+              color: scheme.surface,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Divider(height: 1.2, thickness: 1.2, color: scheme.outline),
+                  NavigationBar(
+                    height: AppLayout.navBarHeight(context),
+                    selectedIndex: index,
+                    onDestinationSelected: _select,
+                    destinations: _destinations,
+                  ),
+                ],
+              ),
             ),
     );
   }
@@ -132,7 +169,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   Widget _scrollableRail(bool compact) {
     final rail = NavigationRail(
       selectedIndex: index,
-      onDestinationSelected: (i) => setState(() => index = i),
+      onDestinationSelected: _select,
       labelType:
           compact ? NavigationRailLabelType.none : NavigationRailLabelType.all,
       minWidth: compact ? 56 : 80,

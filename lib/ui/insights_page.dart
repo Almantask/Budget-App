@@ -8,9 +8,7 @@ import '../models/notice.dart';
 import '../state/budget_controller.dart';
 import '../services/dates.dart';
 import 'layout.dart';
-import 'motion.dart';
 import 'theme.dart';
-import 'widgets/animated_number.dart';
 import 'widgets/period_selector.dart';
 import 'widgets/person_filter.dart';
 
@@ -25,6 +23,8 @@ class InsightsPage extends StatelessWidget {
     final quests = controller.monthQuestList;
     final hits = controller.stretchHistory;
     final currentMonth = controller.viewMonth;
+    final phone = AppLayout.isPhone(context);
+    final gap = phone ? 10.0 : 12.0;
 
     return ListView(
       padding: AppLayout.pagePadding(context),
@@ -33,20 +33,20 @@ class InsightsPage extends StatelessWidget {
           value: controller.period,
           onChanged: controller.setPeriod,
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: phone ? 8 : 10),
         PersonFilterBar(
           household: controller.state.household,
           value: controller.filters.personId,
           onChanged: controller.setPersonFilter,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         _StretchCard(
           stretch: stretch,
           net: controller.currentMonthPoint.net,
           level: level,
           streak: controller.loggingStreak,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: gap),
         Text('Mėnesio iššūkis', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         for (final quest in quests) _QuestTile(quest: quest),
@@ -54,23 +54,20 @@ class InsightsPage extends StatelessWidget {
         Text('Taupymo istorija', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         for (final hit in hits.reversed.take(6))
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(hit.month),
-            subtitle: Text(
-              hit.month == currentMonth
-                  ? 'Vyksta · tikslas ${formatEur(hit.goal.target)}'
-                  : hit.hit
-                      ? 'Pasiekta · ${formatEur(hit.net)}'
-                      : 'Praleista · ${formatEur(hit.net)}',
-            ),
+          _InfoRow(
+            title: hit.month,
+            detail: hit.month == currentMonth
+                ? 'Vyksta · tikslas ${formatEur(hit.goal.target)}'
+                : hit.hit
+                    ? 'Pasiekta · ${formatEur(hit.net)}'
+                    : 'Praleista · ${formatEur(hit.net)}',
             trailing: Icon(
               hit.month == currentMonth
                   ? Icons.hourglass_top
                   : hit.hit
                       ? Icons.check_circle_outline
                       : Icons.remove_circle_outline,
+              color: hit.hit ? AppColors.income : AppColors.muted,
             ),
           ),
         const SizedBox(height: 8),
@@ -85,11 +82,15 @@ class InsightsPage extends StatelessWidget {
                 avatar: Icon(
                   badge.unlocked ? Icons.emoji_events : Icons.lock_outline,
                   size: 16,
+                  color: badge.unlocked ? Colors.white : AppColors.muted,
                 ),
                 label: Text(badge.title),
-                backgroundColor: badge.unlocked
-                    ? const Color(0xFF0F6B5C).withValues(alpha: 0.12)
-                    : null,
+                backgroundColor:
+                    badge.unlocked ? AppColors.seed : Colors.white,
+                labelStyle: TextStyle(
+                  color: badge.unlocked ? Colors.white : AppColors.ink,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
           ],
         ),
@@ -106,86 +107,162 @@ class InsightsPage extends StatelessWidget {
               if (controller.unreadNotices.isNotEmpty)
                 TextButton(
                   onPressed: controller.markNoticesRead,
-                  child: const Text('Pažymėti skaitytais'),
+                  child: const Text('Skaityta'),
                 ),
             ],
           ),
           for (final notice in controller.state.notices.take(8))
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                notice.level == AlertLevel.breach
-                    ? Icons.error_outline
-                    : Icons.warning_amber_outlined,
-              ),
-              title: Text(notice.label),
-              subtitle: Text(notice.message),
+            _InfoRow(
+              title: notice.label,
+              detail: notice.message,
               trailing: Text(
                 dateKey(notice.at),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              leading: Icon(
+                notice.level == AlertLevel.breach
+                    ? Icons.error_outline
+                    : Icons.warning_amber_outlined,
+                color: notice.level == AlertLevel.breach
+                    ? const Color(0xFF9B1C14)
+                    : const Color(0xFFB54708),
+              ),
             ),
         ],
-        const SizedBox(height: 20),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: () async {
-                final csv = controller.csvForVisible();
-                await Clipboard.setData(ClipboardData(text: csv));
-                await controller.exportCsv();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('CSV nukopijuotas ir paruoštas dalintis.'),
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.download),
-              label: const Text('Eksportuoti CSV'),
-            ),
-          ],
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () async {
+              final csv = controller.csvForVisible();
+              await Clipboard.setData(ClipboardData(text: csv));
+              await controller.exportCsv();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('CSV nukopijuotas ir paruoštas dalintis.'),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.download),
+            label: const Text('Eksportuoti CSV'),
+          ),
         ),
         const SizedBox(height: 20),
         Text('Kur sutaupyti', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         for (final tip in controller.savingTips)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.tips_and_updates_outlined),
-              title: Text(tip.title),
-              subtitle: Text(tip.detail),
-              trailing: FittedBox(
-                child: Text(
-                  '${formatEur(tip.monthlySaving)}/mėn',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
+          _ValueCard(
+            icon: Icons.tips_and_updates_outlined,
+            title: tip.title,
+            detail: tip.detail,
+            amountLabel: '${formatEur(tip.monthlySaving)}/mėn',
           ),
         const SizedBox(height: 20),
         Text('Didžiausia vertė', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         for (final item in controller.biggestValue)
-          Card(
-            child: ListTile(
-              leading: Icon(switch (item.kind) {
-                ValueKind.expense => Icons.payments_outlined,
-                ValueKind.opportunity => Icons.savings_outlined,
-                ValueKind.recurring => Icons.repeat,
-              }),
-              title: Text(item.title),
-              subtitle: Text(item.detail),
-              trailing: AnimatedEur(
-                value: item.amount,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
+          _ValueCard(
+            icon: switch (item.kind) {
+              ValueKind.expense => Icons.payments_outlined,
+              ValueKind.opportunity => Icons.savings_outlined,
+              ValueKind.recurring => Icons.repeat,
+            },
+            title: item.title,
+            detail: item.detail,
+            amountLabel: formatEur(item.amount),
           ),
       ],
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.title,
+    required this.detail,
+    required this.trailing,
+    this.leading,
+  });
+
+  final String title;
+  final String detail;
+  final Widget trailing;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (leading != null) ...[
+            leading!,
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                Text(detail, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          trailing,
+        ],
+      ),
+    );
+  }
+}
+
+class _ValueCard extends StatelessWidget {
+  const _ValueCard({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    required this.amountLabel,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+  final String amountLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: AppColors.ink),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(detail, style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: 6),
+                    Text(
+                      amountLabel,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -210,7 +287,7 @@ class _StretchCard extends StatelessWidget {
         : (net / stretch.target).clamp(0.0, 1.0);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: AppLayout.cardPadding(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -221,15 +298,18 @@ class _StretchCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(stretch.reason),
             const SizedBox(height: 12),
-            _AnimatedBar(value: progress, minHeight: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(value: progress, minHeight: 10),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                AnimatedEur(
-                  value: net,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                Text(
+                  formatEur(net),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 Text(
                   'iš ${formatEur(stretch.target)}',
@@ -250,7 +330,13 @@ class _StretchCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            _AnimatedBar(value: level.progress, minHeight: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                value: level.progress,
+                minHeight: 6,
+              ),
+            ),
           ],
         ),
       ),
@@ -264,48 +350,53 @@ class _QuestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ratio = quest.target == 0 ? 0.0 : (quest.current / quest.target).clamp(0.0, 1.0);
-    return Card(
-      child: ListTile(
-        leading: Icon(
-          quest.complete ? Icons.check_circle : Icons.flag_outlined,
-          color: quest.complete ? const Color(0xFF1B7F5A) : null,
+    final ratio =
+        quest.target == 0 ? 0.0 : (quest.current / quest.target).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                quest.complete ? Icons.check_circle : Icons.flag_outlined,
+                color: quest.complete ? AppColors.income : AppColors.ink,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      quest.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      quest.detail,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                        value: ratio,
+                        minHeight: 6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '+${quest.xp}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
         ),
-        title: Text(quest.title),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(quest.detail),
-            const SizedBox(height: 6),
-            _AnimatedBar(value: ratio, minHeight: 6),
-          ],
-        ),
-        isThreeLine: true,
-        trailing: Text('+${quest.xp}'),
       ),
     );
   }
 }
-
-class _AnimatedBar extends StatelessWidget {
-  const _AnimatedBar({required this.value, required this.minHeight});
-
-  final double value;
-  final double minHeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
-      duration: AppMotion.of(context, AppMotion.progress),
-      curve: AppMotion.easeOut,
-      builder: (context, v, _) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(value: v, minHeight: minHeight),
-        );
-      },
-    );
-  }
-}
-

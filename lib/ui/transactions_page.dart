@@ -19,13 +19,21 @@ class TransactionsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<BudgetController>();
     final txs = controller.visibleTransactions;
+    final unusual = controller.unusualTransactionIds;
+    final household = controller.state.household;
     final dateFmt = DateFormat('EEE, MMM d', 'lt');
     final padding = AppLayout.pagePadding(context);
+    final phone = AppLayout.isPhone(context);
 
     return CustomScrollView(
       slivers: [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(padding.left, padding.top, padding.right, 0),
+          padding: EdgeInsets.fromLTRB(
+            padding.left,
+            padding.top,
+            padding.right,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,20 +42,20 @@ class TransactionsPage extends StatelessWidget {
                   value: controller.period,
                   onChanged: controller.setPeriod,
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: phone ? 8 : 10),
                 PersonFilterBar(
-                  household: controller.state.household,
+                  household: household,
                   value: controller.filters.personId,
                   onChanged: controller.setPersonFilter,
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: phone ? 8 : 10),
                 CategoryFilterBar(
                   categoryId: controller.filters.categoryId,
                   tag: controller.filters.tag,
                   onCategory: controller.setCategoryFilter,
                   onTag: controller.setTagFilter,
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: phone ? 8 : 10),
                 TextField(
                   decoration: const InputDecoration(
                     hintText: 'Paieška pagal pardavėją ar aprašymą',
@@ -68,9 +76,9 @@ class TransactionsPage extends StatelessWidget {
         else
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
-              padding.left - 8,
+              padding.left,
               4,
-              padding.right - 8,
+              padding.right,
               padding.bottom,
             ),
             sliver: SliverList(
@@ -84,7 +92,7 @@ class TransactionsPage extends StatelessWidget {
                     children: [
                       if (showHeader)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 8, 6),
+                          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
                           child: Text(
                             dateFmt.format(tx.bookedAt),
                             style: Theme.of(context).textTheme.titleSmall,
@@ -92,17 +100,15 @@ class TransactionsPage extends StatelessWidget {
                         ),
                       _TxTile(
                         tx: tx,
-                        personName: controller.state.household
-                            .byId(tx.personId)
-                            .name,
-                        unusual:
-                            controller.unusualTransactionIds.contains(tx.id),
+                        personName: household.byId(tx.personId).name,
+                        unusual: unusual.contains(tx.id),
                         onTap: () => _edit(context, controller, tx),
                       ),
                     ],
                   );
                 },
                 childCount: txs.length,
+                addAutomaticKeepAlives: false,
               ),
             ),
           ),
@@ -238,38 +244,70 @@ class _TxTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cat = Categories.byId(tx.categoryId);
-    return Card(
-      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      child: ListTile(
-        onTap: onTap,
-        title: Text(
-          tx.merchant.isEmpty ? tx.description : tx.merchant,
-          overflow: TextOverflow.ellipsis,
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: scheme.outline, width: 1.2),
         ),
-        subtitle: Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              '${cat.name} · ${tx.tag.label} · $personName · ${tx.bank.shortLabel}',
-            ),
-            if (unusual)
-              const Chip(
-                visualDensity: VisualDensity.compact,
-                label: Text('Neįprasta'),
-                padding: EdgeInsets.zero,
-              ),
-          ],
-        ),
-        trailing: FittedBox(
-          child: Text(
-            formatSignedEur(tx.amount),
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: tx.isIncome
-                  ? AppColors.income
-                  : Theme.of(context).colorScheme.onSurface,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tx.merchant.isEmpty ? tx.description : tx.merchant,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${cat.name} · ${tx.tag.label} · $personName · ${tx.bank.shortLabel}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      if (unusual) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Neįprasta',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.expense,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 110),
+                  child: Text(
+                    formatSignedEur(tx.amount),
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: tx.isIncome
+                          ? AppColors.income
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

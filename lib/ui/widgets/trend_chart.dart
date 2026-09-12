@@ -125,7 +125,7 @@ class _TrendChartState extends State<TrendChart>
     return Card(
       clipBehavior: Clip.none,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+        padding: AppLayout.cardPadding(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -153,11 +153,7 @@ class _TrendChartState extends State<TrendChart>
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: AppLayout.isShort(context)
-                  ? 128
-                  : AppLayout.isLandscape(context)
-                      ? 176
-                      : 208,
+              height: AppLayout.chartHeight(context),
               child: labels.isEmpty
                   ? const Center(child: Text('Trūksta duomenų grafikui.'))
                   : LayoutBuilder(
@@ -224,11 +220,17 @@ class _ChartLegend extends StatelessWidget {
 }
 
 class _SeriesPaths {
-  _SeriesPaths({required this.line, required this.area})
-      : metric = line.computeMetrics().toList(growable: false);
+  _SeriesPaths({
+    required this.line,
+    required this.area,
+    required this.fill,
+    required this.stroke,
+  }) : metric = line.computeMetrics().toList(growable: false);
 
   final Path line;
   final Path area;
+  final Paint fill;
+  final Paint stroke;
   final List<PathMetric> metric;
 }
 
@@ -244,6 +246,7 @@ class _ChartGeometry {
     required this.gains,
     required this.expenses,
     required this.net,
+    required this.netStroke,
     required this.netMetrics,
     required this.xLabels,
     required this.yMax,
@@ -254,6 +257,7 @@ class _ChartGeometry {
   final _SeriesPaths gains;
   final _SeriesPaths expenses;
   final Path net;
+  final Paint netStroke;
   final List<PathMetric> netMetrics;
   final List<_LabelSlot> xLabels;
   final TextPainter yMax;
@@ -275,9 +279,9 @@ class _ChartGeometry {
     required Color labelColor,
   }) {
     const top = 18.0;
-    const right = 10.0;
-    const left = 44.0;
-    const bottom = 28.0;
+    const right = 8.0;
+    const left = 40.0;
+    const bottom = 26.0;
     final chart = Rect.fromLTWH(
       left,
       top,
@@ -290,14 +294,22 @@ class _ChartGeometry {
       ...net.map((v) => v.abs()),
     ].fold<double>(1, (m, v) => v > m ? v : m);
 
-    final gainPaths = _series(chart, gains, maxValue);
-    final expensePaths = _series(chart, expenses, maxValue);
+    final gainPaths = _series(chart, gains, maxValue, AppColors.income);
+    final expensePaths = _series(chart, expenses, maxValue, AppColors.expense);
     final netLine = _smoothLine(_points(chart, net, maxValue));
     final netMetrics = netLine.computeMetrics().toList(growable: false);
+    final netStroke = Paint()
+      ..color = AppColors.net
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
 
     final textStyle = TextStyle(
       color: labelColor,
-      fontSize: 10,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final step = labels.length <= 6 ? 1 : (labels.length / 6).ceil();
@@ -329,6 +341,7 @@ class _ChartGeometry {
       gains: gainPaths,
       expenses: expensePaths,
       net: netLine,
+      netStroke: netStroke,
       netMetrics: netMetrics,
       xLabels: xLabels,
       yMax: yMax,
@@ -354,7 +367,12 @@ class _ChartGeometry {
     ];
   }
 
-  static _SeriesPaths _series(Rect chart, List<double> values, double maxValue) {
+  static _SeriesPaths _series(
+    Rect chart,
+    List<double> values,
+    double maxValue,
+    Color color,
+  ) {
     final points = _points(chart, values, maxValue);
     final line = _smoothLine(points);
     final area = Path.from(line);
@@ -364,7 +382,24 @@ class _ChartGeometry {
         ..lineTo(points.first.dx, chart.bottom)
         ..close();
     }
-    return _SeriesPaths(line: line, area: area);
+    final fill = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color.withValues(alpha: 0.34),
+          color.withValues(alpha: 0.06),
+        ],
+      ).createShader(chart)
+      ..style = PaintingStyle.fill;
+    final stroke = Paint()
+      ..color = color
+      ..strokeWidth = 2.6
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+    return _SeriesPaths(line: line, area: area, fill: fill, stroke: stroke);
   }
 
   static Path _smoothLine(List<Offset> points) {
@@ -406,8 +441,13 @@ class _TrendPainter extends CustomPainter {
 
   static final _gridPaint = Paint()
     ..color = AppColors.grid
-    ..strokeWidth = 1
+    ..strokeWidth = 1.2
     ..style = PaintingStyle.stroke;
+
+  static final _dotStroke = Paint()
+    ..color = Colors.white
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.4;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -425,17 +465,17 @@ class _TrendPainter extends CustomPainter {
     );
     canvas.save();
     canvas.clipRect(reveal);
-    _fill(canvas, geometry.gains.area, AppColors.income);
-    _stroke(canvas, geometry.gains.line, AppColors.income, 2.4);
-    _fill(canvas, geometry.expenses.area, AppColors.expense);
-    _stroke(canvas, geometry.expenses.line, AppColors.expense, 2.4);
-    _stroke(canvas, geometry.net, AppColors.net, 2.0);
+    canvas.drawPath(geometry.gains.area, geometry.gains.fill);
+    canvas.drawPath(geometry.gains.line, geometry.gains.stroke);
+    canvas.drawPath(geometry.expenses.area, geometry.expenses.fill);
+    canvas.drawPath(geometry.expenses.line, geometry.expenses.stroke);
+    canvas.drawPath(geometry.net, geometry.netStroke);
     canvas.restore();
 
     if (progress > 0.04) {
-      _dot(canvas, geometry.gains.metric, AppColors.income);
-      _dot(canvas, geometry.expenses.metric, AppColors.expense);
-      _dot(canvas, geometry.netMetrics, AppColors.net);
+      _dot(canvas, geometry.gains.metric, geometry.gains.stroke.color);
+      _dot(canvas, geometry.expenses.metric, geometry.expenses.stroke.color);
+      _dot(canvas, geometry.netMetrics, geometry.netStroke.color);
     }
 
     for (final slot in geometry.xLabels) {
@@ -444,53 +484,14 @@ class _TrendPainter extends CustomPainter {
     geometry.yMax.paint(canvas, geometry.yMaxOffset);
   }
 
-  void _fill(Canvas canvas, Path path, Color color) {
-    canvas.drawPath(
-      path,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            color.withValues(alpha: 0.28),
-            color.withValues(alpha: 0.04),
-          ],
-        ).createShader(geometry.chart)
-        ..style = PaintingStyle.fill,
-    );
-  }
-
-  void _stroke(Canvas canvas, Path path, Color color, double width) {
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..strokeWidth = width
-        ..style = PaintingStyle.stroke
-        ..strokeJoin = StrokeJoin.round
-        ..strokeCap = StrokeCap.round
-        ..isAntiAlias = true,
-    );
-  }
-
   void _dot(Canvas canvas, List<PathMetric> metrics, Color color) {
+    final fill = Paint()..color = color;
     for (final metric in metrics) {
       if (metric.length == 0) continue;
       final tangent = metric.getTangentForOffset(metric.length * progress);
       if (tangent == null) continue;
-      canvas.drawCircle(
-        tangent.position,
-        3.6,
-        Paint()..color = color,
-      );
-      canvas.drawCircle(
-        tangent.position,
-        3.6,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4,
-      );
+      canvas.drawCircle(tangent.position, 3.6, fill);
+      canvas.drawCircle(tangent.position, 3.6, _dotStroke);
     }
   }
 

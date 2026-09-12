@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/category.dart';
 import '../../models/insight.dart';
-import '../motion.dart';
 import '../theme.dart';
-import 'animated_number.dart';
 
 class CategoryBars extends StatelessWidget {
   const CategoryBars({super.key, required this.rows});
@@ -17,23 +15,17 @@ class CategoryBars extends StatelessWidget {
     final max = visible.fold<double>(0, (s, r) => r.amount > s ? r.amount : s);
     return Column(
       children: [
-        for (var i = 0; i < visible.length; i++)
-          _BarRow(row: visible[i], max: max, index: i),
+        for (final row in visible) _BarRow(row: row, max: max),
       ],
     );
   }
 }
 
 class _BarRow extends StatelessWidget {
-  const _BarRow({
-    required this.row,
-    required this.max,
-    required this.index,
-  });
+  const _BarRow({required this.row, required this.max});
 
   final CategorySpend row;
   final double max;
-  final int index;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +33,7 @@ class _BarRow extends StatelessWidget {
     final color =
         row.optional > row.essential ? AppColors.optional : AppColors.seed;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -51,53 +43,37 @@ class _BarRow extends StatelessWidget {
                 child: Text(
                   Categories.byId(row.categoryId).name,
                   overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
               const SizedBox(width: 8),
-              AnimatedEur(
-                value: row.amount,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              Text(
+                formatEur(row.amount),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: ratio),
-            duration: AppMotion.of(
-              context,
-              Duration(milliseconds: AppMotion.bars.inMilliseconds + index * 45),
-            ),
-            curve: Interval(
-              (index * 0.07).clamp(0.0, 0.6),
-              1,
-              curve: AppMotion.easeOut,
-            ),
-            builder: (context, value, _) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(99),
-                child: SizedBox(
-                  height: 9,
-                  child: Stack(
-                    children: [
-                      const ColoredBox(
-                        color: AppColors.track,
-                        child: SizedBox.expand(),
-                      ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: value.clamp(0.0, 1.0),
-                          child: ColoredBox(
-                            color: color,
-                            child: const SizedBox.expand(),
-                          ),
-                        ),
-                      ),
-                    ],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: SizedBox(
+              height: 10,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ColoredBox(color: AppColors.track),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: ratio.clamp(0.0, 1.0),
+                      child: ColoredBox(color: color),
+                    ),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
         ],
       ),
