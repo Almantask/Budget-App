@@ -43,7 +43,13 @@ class TripController extends ChangeNotifier {
 
   Timer? _debounce;
 
-  bool get aroundMeSelected => plan?.aroundMe == true || destination?.isAroundMe == true;
+  bool originReady = false;
+  bool _awaitingOriginForAroundMe = false;
+
+  bool get aroundMeSelected =>
+      plan?.aroundMe == true ||
+      destination?.isAroundMe == true ||
+      _awaitingOriginForAroundMe;
 
   List<FuelStation> get visibleStations {
     final stations = plan?.stations ?? const <FuelStation>[];
@@ -76,19 +82,24 @@ class TripController extends ChangeNotifier {
     originNote = fix.note;
     originLabel = fix.isFallback ? 'Vilnius (numatytoji)' : 'Dabartinė vieta';
     locating = false;
+    originReady = true;
     notifyListeners();
 
-    final reverse = await routing.reverseGeocode(origin);
-    if (reverse != null && reverse.isNotEmpty) {
-      originLabel = fix.isFallback ? 'Vilnius (numatytoji)' : reverse;
-      notifyListeners();
-    }
-    if (destination != null && previous != origin) {
+    if (_awaitingOriginForAroundMe) {
+      _awaitingOriginForAroundMe = false;
+      await selectAroundMe();
+    } else if (destination != null && haversineMeters(previous, origin) > 250) {
       if (destination!.isAroundMe) {
         await selectAroundMe();
       } else {
         await selectDestination(destination!);
       }
+    }
+
+    final reverse = await routing.reverseGeocode(origin);
+    if (reverse != null && reverse.isNotEmpty) {
+      originLabel = fix.isFallback ? 'Vilnius (numatytoji)' : reverse;
+      notifyListeners();
     }
   }
 
@@ -155,7 +166,15 @@ class TripController extends ChangeNotifier {
 
   Future<void> selectAroundMe() async {
     if (planning) return;
-    if (plan?.aroundMe == true && plan!.origin == origin) {
+    if (!originReady || locating) {
+      _awaitingOriginForAroundMe = true;
+      query = PlaceSuggestion.aroundMeLabel;
+      destination = PlaceSuggestion.aroundMe(origin);
+      suggestions = const [];
+      notifyListeners();
+      return;
+    }
+    if (plan?.aroundMe == true && haversineMeters(plan!.origin, origin) <= 250) {
       query = PlaceSuggestion.aroundMeLabel;
       destination = PlaceSuggestion.aroundMe(origin);
       suggestions = const [];
@@ -208,6 +227,7 @@ class TripController extends ChangeNotifier {
     error = null;
     planning = false;
     searching = false;
+    _awaitingOriginForAroundMe = false;
     notifyListeners();
   }
 

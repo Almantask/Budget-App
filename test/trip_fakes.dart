@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:budget_app/models/geo.dart';
 import 'package:budget_app/services/location_source.dart';
 import 'package:budget_app/services/trip_routing.dart';
@@ -14,6 +16,16 @@ class FakeLocationSource implements LocationSource {
 
   @override
   Future<LocationFix> currentOrDefault() async => fix;
+}
+
+class GatedLocationSource implements LocationSource {
+  GatedLocationSource(this.gate, this.fix);
+
+  final Completer<LocationFix> gate;
+  final LocationFix fix;
+
+  @override
+  Future<LocationFix> currentOrDefault() => gate.future.then((_) => fix);
 }
 
 class FakeTripRoutingService extends TripRoutingService {

@@ -23,7 +23,8 @@ class _TripPageState extends State<TripPage> {
   late final MapController _map;
   late final FocusNode _focus;
 
-  String? _fittedKey;
+  String? _cameraKey;
+  bool _syncingQuery = false;
 
   @override
   void initState() {
@@ -42,19 +43,54 @@ class _TripPageState extends State<TripPage> {
   void _syncField() {
     final trip = _trip;
     if (_destination.text != trip.query) {
+      _syncingQuery = true;
       _destination.value = TextEditingValue(
         text: trip.query,
         selection: TextSelection.collapsed(offset: trip.query.length),
       );
+      _syncingQuery = false;
     }
-    final plan = trip.plan;
-    if (plan != null && widget.showMap && mounted) {
-      final key =
-          '${plan.aroundMe}|${plan.destination.label}|${plan.origin.lat.toStringAsFixed(5)}|${plan.origin.lon.toStringAsFixed(5)}|${plan.stations.length}|${plan.polyline.length}';
-      if (key != _fittedKey) {
-        _fittedKey = key;
-        _fitPlan(plan);
+    _applyCameraIfNeeded();
+  }
+
+  void _applyCameraIfNeeded() {
+    final plan = _trip.plan;
+    if (!widget.showMap || !mounted) return;
+    if (plan == null) {
+      _cameraKey = null;
+      return;
+    }
+    final key = plan.aroundMe
+        ? 'around:${plan.origin.lat.toStringAsFixed(4)},${plan.origin.lon.toStringAsFixed(4)}'
+        : 'route:${plan.destination.label}:${plan.origin.lat.toStringAsFixed(4)}:${plan.polyline.length}';
+    if (key == _cameraKey) return;
+    _cameraKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _cameraKey != key) return;
+      _moveCamera(plan);
+    });
+  }
+
+  void _moveCamera(TripPlan plan) {
+    try {
+      final size = _map.camera.nonRotatedSize;
+      if (!size.width.isFinite ||
+          !size.height.isFinite ||
+          size.width < 8 ||
+          size.height < 8) {
+        _cameraKey = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _applyCameraIfNeeded();
+        });
+        return;
       }
+      if (plan.aroundMe) {
+        _map.move(LatLng(plan.origin.lat, plan.origin.lon), 13);
+        return;
+      }
+      _fitPlan(plan);
+    } catch (_) {
+      _cameraKey = null;
     }
   }
 
@@ -84,7 +120,7 @@ class _TripPageState extends State<TripPage> {
             LatLng(maxLat, maxLon),
           ),
           padding: const EdgeInsets.fromLTRB(40, 160, 40, 200),
-          maxZoom: plan.aroundMe ? 13 : 16,
+          maxZoom: 16,
           minZoom: 8,
         ),
       );
@@ -112,6 +148,10 @@ class _TripPageState extends State<TripPage> {
             child: _SearchCard(
               destination: _destination,
               focus: _focus,
+              onQueryChanged: (value) {
+                if (_syncingQuery) return;
+                _trip.onQueryChanged(value);
+              },
             ),
           ),
         ),
@@ -128,10 +168,9 @@ class _TripPageState extends State<TripPage> {
     trip.selectStation(station);
     if (!widget.showMap) return;
     try {
-      final currentZoom = _map.camera.zoom;
       _map.move(
         LatLng(station.point.lat, station.point.lon),
-        currentZoom < 13 ? 13 : currentZoom,
+        _map.camera.zoom,
       );
     } catch (_) {}
   }
@@ -155,9 +194,30 @@ class _MapStub extends StatelessWidget {
   }
 }
 
-class _MapView extends StatelessWidget {
+class _MapView extends StatefulWidget {
   const _MapView({required this.map});
   final MapController map;
+
+  @override
+  State<_MapView> createState() => _MapViewState();
+}
+
+class _MapViewState extends State<_MapView> {
+  late final MapOptions _options;
+
+  @override
+  void initState() {
+    super.initState();
+    final trip = context.read<TripController>();
+    _options = MapOptions(
+      initialCenter: LatLng(trip.origin.lat, trip.origin.lon),
+      initialZoom: 13,
+      interactionOptions: const InteractionOptions(
+        flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+      ),
+      onTap: (_, _) => trip.selectStation(null),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -167,21 +227,14 @@ class _MapView extends StatelessWidget {
     final selected = trip.selectedStation;
 
     return FlutterMap(
-      mapController: map,
-      options: MapOptions(
-        initialCenter: origin,
-        initialZoom: 12,
-        interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-        ),
-        onTap: (_, _) => trip.selectStation(null),
-      ),
+      mapController: widget.map,
+      options: _options,
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'lt.almantask.budget_app',
         ),
-        if (plan != null)
+        if (plan != null && !plan.aroundMe && plan.polyline.isNotEmpty)
           PolylineLayer(
             polylines: [
               Polyline(
@@ -193,8 +246,8 @@ class _MapView extends StatelessWidget {
               ),
             ],
           ),
-        SimpleAttributionWidget(
-          source: const Text('OpenStreetMap'),
+        const SimpleAttributionWidget(
+          source: Text('OpenStreetMap'),
         ),
         MarkerLayer(
           markers: [
@@ -271,10 +324,12 @@ class _SearchCard extends StatelessWidget {
   const _SearchCard({
     required this.destination,
     required this.focus,
+    required this.onQueryChanged,
   });
 
   final TextEditingController destination;
   final FocusNode focus;
+  final ValueChanged<String> onQueryChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +379,7 @@ class _SearchCard extends StatelessWidget {
               controller: destination,
               focusNode: focus,
               textInputAction: TextInputAction.search,
-              onChanged: trip.onQueryChanged,
+              onChanged: onQueryChanged,
               decoration: InputDecoration(
                 hintText: 'Kur važiuojate?',
                 prefixIcon: const Icon(Icons.search),
