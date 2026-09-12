@@ -74,13 +74,16 @@ class _SettingsPageState extends State<SettingsPage> {
           decoration: const InputDecoration(labelText: 'Antras žmogus / žmona'),
         ),
         const SizedBox(height: 12),
-        FilledButton(
-          onPressed: () => controller.renamePeople(
-            me: _me.text.trim().isEmpty ? 'Aš' : _me.text.trim(),
-            partner:
-                _partner.text.trim().isEmpty ? 'Žmona' : _partner.text.trim(),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () => controller.renamePeople(
+              me: _me.text.trim().isEmpty ? 'Aš' : _me.text.trim(),
+              partner:
+                  _partner.text.trim().isEmpty ? 'Žmona' : _partner.text.trim(),
+            ),
+            child: const Text('Išsaugoti vardus'),
           ),
-          child: const Text('Išsaugoti vardus'),
         ),
         const SizedBox(height: 24),
         Text('Biudžeto ribos', style: Theme.of(context).textTheme.titleLarge),
@@ -141,21 +144,27 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         const SizedBox(height: 12),
-        FilledButton.tonal(
-          onPressed: () => controller.saveCredentials(
-            BankCredentials(
-              enableBankingApplicationId: _applicationId.text.trim(),
-              enableBankingPrivateKey: _privateKey.text.trim(),
-              enableBankingRedirectUri: _redirectUri.text.trim(),
-              wiseApiToken: _wise.text.trim(),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.tonal(
+            onPressed: () => controller.saveCredentials(
+              BankCredentials(
+                enableBankingApplicationId: _applicationId.text.trim(),
+                enableBankingPrivateKey: _privateKey.text.trim(),
+                enableBankingRedirectUri: _redirectUri.text.trim(),
+                wiseApiToken: _wise.text.trim(),
+              ),
             ),
+            child: const Text('Išsaugoti raktus'),
           ),
-          child: const Text('Išsaugoti raktus'),
         ),
         const SizedBox(height: 24),
-        OutlinedButton(
-          onPressed: controller.loadDemoData,
-          child: const Text('Perkrauti demo duomenis'),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: controller.loadDemoData,
+            child: const Text('Perkrauti demo duomenis'),
+          ),
         ),
       ],
     );
@@ -228,8 +237,8 @@ class _BudgetEditorState extends State<_BudgetEditor> {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

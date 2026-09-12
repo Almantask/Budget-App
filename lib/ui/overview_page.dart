@@ -28,19 +28,23 @@ class OverviewPage extends StatelessWidget {
     final fmt = DateFormat('MMM d', 'lt');
     final twoPane = AppLayout.useTwoPane(context);
     final padding = AppLayout.pagePadding(context);
+    final phone = AppLayout.isPhone(context);
+    final compact = AppLayout.isCompact(context);
+    final cardPad = AppLayout.cardPadding(context);
+    final gap = phone ? 10.0 : 12.0;
 
     final filters = [
       PeriodSelector(
         value: controller.period,
         onChanged: controller.setPeriod,
       ),
-      const SizedBox(height: 10),
+      SizedBox(height: phone ? 8 : 10),
       PersonFilterBar(
         household: controller.state.household,
         value: controller.filters.personId,
         onChanged: controller.setPersonFilter,
       ),
-      const SizedBox(height: 10),
+      SizedBox(height: phone ? 8 : 10),
       CategoryFilterBar(
         categoryId: controller.filters.categoryId,
         tag: controller.filters.tag,
@@ -60,7 +64,7 @@ class OverviewPage extends StatelessWidget {
 
     final split = Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: cardPad,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -101,7 +105,7 @@ class OverviewPage extends StatelessWidget {
 
     final categories = Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: cardPad,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -116,22 +120,20 @@ class OverviewPage extends StatelessWidget {
       ),
     );
 
-    final compact = AppLayout.isShort(context);
     final names =
         '${controller.state.household.me.name} ir ${controller.state.household.partner.name}';
     final dateLabel =
         '${fmt.format(range.start)} – ${fmt.format(range.end.subtract(const Duration(days: 1)))}';
 
     final header = [
-      if (!compact)
-        Text(names, style: Theme.of(context).textTheme.headlineSmall)
-      else
-        Text(
-          names,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+      Text(
+        names,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: compact || phone
+            ? Theme.of(context).textTheme.titleMedium
+            : Theme.of(context).textTheme.headlineSmall,
+      ),
       SizedBox(height: compact ? 2 : 4),
       Text(
         dateLabel,
@@ -141,44 +143,52 @@ class OverviewPage extends StatelessWidget {
       ),
     ];
 
-    return SingleChildScrollView(
-      padding: padding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ...header,
-          if (!compact) ...[
-            const SizedBox(height: 16),
-            ...filters,
-            const SizedBox(height: 16),
-          ] else
-            const SizedBox(height: 12),
-          if (twoPane)
-            _TwoPane(
-              left: [hero, const SizedBox(height: 12), split],
-              right: [chart, const SizedBox(height: 12), categories],
-            )
-          else ...[
-            hero,
-            const SizedBox(height: 12),
-            chart,
-          ],
-          if (compact) ...[
-            const SizedBox(height: 12),
-            ...filters,
-          ],
-          const SizedBox(height: 12),
-          ThresholdBanners(alerts: controller.thresholdAlerts),
-          const SizedBox(height: 12),
-          AnomalyList(items: controller.spendingAnomalies),
-          if (!twoPane) ...[
-            const SizedBox(height: 12),
-            split,
-            const SizedBox(height: 12),
-            categories,
-          ],
-        ],
-      ),
+    final heroFirst = phone || compact;
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: padding,
+          sliver: SliverList.list(
+            children: [
+              ...header,
+              SizedBox(height: heroFirst ? 10 : 16),
+              if (!heroFirst) ...[
+                ...filters,
+                const SizedBox(height: 16),
+              ],
+              if (twoPane)
+                _TwoPane(
+                  left: [hero, SizedBox(height: gap), split],
+                  right: [chart, SizedBox(height: gap), categories],
+                )
+              else ...[
+                hero,
+                SizedBox(height: gap),
+                if (heroFirst && !compact) ...[
+                  ...filters,
+                  SizedBox(height: gap),
+                ],
+                chart,
+              ],
+              if (heroFirst && compact) ...[
+                SizedBox(height: gap),
+                ...filters,
+              ],
+              SizedBox(height: gap),
+              ThresholdBanners(alerts: controller.thresholdAlerts),
+              SizedBox(height: gap),
+              AnomalyList(items: controller.spendingAnomalies),
+              if (!twoPane) ...[
+                SizedBox(height: gap),
+                split,
+                SizedBox(height: gap),
+                categories,
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -230,34 +240,39 @@ class _HeroSpendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = AppLayout.isShort(context);
+    final compact = AppLayout.isCompact(context);
+    final phone = AppLayout.isPhone(context);
+    final radius = AppLayout.cardRadius(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.seed.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: const Color(0xFF07362F), width: 1.2),
+        boxShadow: phone
+            ? const [
+                BoxShadow(
+                  color: Color(0x3307362F),
+                  blurRadius: 8,
+                  offset: Offset(0, 3),
+                ),
+              ]
+            : const [
+                BoxShadow(
+                  color: Color(0x5907362F),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+              ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0C5649), Color(0xFF1A8F78)],
-            ),
-          ),
+        borderRadius: BorderRadius.circular(radius),
+        child: ColoredBox(
+          color: const Color(0xFF0A4A40),
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              22,
-              compact ? 16 : 22,
-              22,
+              phone ? 16 : 22,
               compact ? 14 : 18,
+              phone ? 16 : 22,
+              compact ? 12 : 16,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,7 +280,7 @@ class _HeroSpendCard extends StatelessWidget {
                 Text(
                   'Išlaidos',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.82),
+                        color: Colors.white,
                       ),
                 ),
                 const SizedBox(height: 4),
@@ -276,6 +291,7 @@ class _HeroSpendCard extends StatelessWidget {
                     value: expenses,
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
                           color: Colors.white,
+                          fontSize: phone ? 30 : 34,
                         ),
                   ),
                 ),
@@ -286,13 +302,13 @@ class _HeroSpendCard extends StatelessWidget {
                   previousLabel: previousLabel,
                   onDark: true,
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: phone ? 12 : 16),
                 Row(
                   children: [
                     Expanded(
                       child: _GlassStat(label: 'Pajamos', value: income),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _GlassStat(label: 'Likutis', value: net),
                     ),
@@ -316,18 +332,20 @@ class _GlassStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(0x33FFFFFF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x66FFFFFF)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
                   ),
             ),
             const SizedBox(height: 2),
@@ -376,6 +394,10 @@ class _SplitBar extends StatelessWidget {
                     flex: math.max(1, (essentialShare * 1000).round()),
                     child: const ColoredBox(color: AppColors.seed),
                   ),
+                  const ColoredBox(
+                    color: Colors.white,
+                    child: SizedBox(width: 2),
+                  ),
                   Expanded(
                     flex: math.max(1, ((1 - essentialShare) * 1000).round()),
                     child: const ColoredBox(color: AppColors.optional),
@@ -408,14 +430,18 @@ class _LegendDot extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.ink.withValues(alpha: 0.35)),
+          ),
         ),
         const SizedBox(width: 6),
         Text('$label ', style: Theme.of(context).textTheme.bodySmall),
         AnimatedEur(
           value: amount,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
         ),

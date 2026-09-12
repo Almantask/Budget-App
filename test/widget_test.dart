@@ -45,15 +45,16 @@ Future<void> _pumpShell(WidgetTester tester, BudgetController controller) {
   return tester.pumpWidget(
     ChangeNotifierProvider.value(
       value: controller,
-      child: const MaterialApp(
-        locale: Locale('lt'),
-        localizationsDelegates: [
+      child: MaterialApp(
+        locale: const Locale('lt'),
+        theme: AppTheme.light(),
+        localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        supportedLocales: [Locale('lt')],
-        home: HomeShell(),
+        supportedLocales: const [Locale('lt')],
+        home: const HomeShell(),
       ),
     ),
   );
@@ -90,6 +91,10 @@ void main() {
     expect(find.text('Būtina vs nebūtina'), findsOneWidget);
     expect(find.text('Išlaidos ir pajamos per laiką'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Išlaidos')).dy,
+      lessThan(tester.getTopLeft(find.text('Mėnuo')).dy),
+    );
   });
 
   testWidgets('app loads demo household', (tester) async {
@@ -194,5 +199,52 @@ void main() {
     expect(find.text('Kartą į dieną auto-sync'), findsOneWidget);
     expect(find.text('Perjungti ryšį'), findsWidgets);
     expect(find.text('GoCardless'), findsNothing);
+  });
+
+  testWidgets('phone portrait keeps overview readable without overflow',
+      (tester) async {
+    final overflows = <String>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = (details) {
+      overflows.addAll(_overflowsFrom(details));
+      previous?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = previous);
+
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = _controller();
+    await controller.load();
+    await _pumpShell(tester, controller);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Išlaidos'), findsOneWidget);
+    expect(overflows, isEmpty);
+
+    await tester.tap(find.text('Operacijos').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Paieška pagal pardavėją ar aprašymą'), findsOneWidget);
+    expect(overflows, isEmpty);
+
+    await tester.tap(find.text('Įžvalgos').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Taupymo tikslas'), findsOneWidget);
+    expect(overflows, isEmpty);
+  });
+
+  testWidgets('derived overview values are reused until filters change',
+      (tester) async {
+    final controller = _controller();
+    await controller.load();
+    final first = controller.snapshot;
+    final again = controller.snapshot;
+    expect(identical(first, again), isTrue);
+    controller.setPersonFilter(Person.meId);
+    expect(identical(first, controller.snapshot), isFalse);
   });
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../models/notice.dart';
 import '../theme.dart';
-import 'animated_number.dart';
 
 class ThresholdBanners extends StatelessWidget {
   const ThresholdBanners({super.key, required this.alerts});
@@ -21,17 +20,38 @@ class ThresholdBanners extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Card(
-              color: _color(alert.level).withValues(alpha: 0.12),
-              child: ListTile(
-                leading: Icon(_icon(alert.level), color: _color(alert.level)),
-                title: Text('${alert.label} · ${_label(alert.level)}'),
-                subtitle: Text(alert.message),
-                trailing: AnimatedPercent(
-                  value: alert.ratio,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: _color(alert.level),
-                  ),
+              color: _color(alert.level).withValues(alpha: 0.16),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(_icon(alert.level), color: _color(alert.level)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${alert.label} · ${_label(alert.level)}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            alert.message,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${(alert.ratio * 100).round()}%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: _color(alert.level),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -55,7 +75,7 @@ class ThresholdBanners extends StatelessWidget {
       };
 
   static Color _color(AlertLevel level) => switch (level) {
-        AlertLevel.breach => const Color(0xFFB42318),
+        AlertLevel.breach => const Color(0xFF9B1C14),
         AlertLevel.warning => const Color(0xFFB54708),
         AlertLevel.pace => const Color(0xFF175CD3),
         AlertLevel.ok => AppTheme.seed,
@@ -82,20 +102,45 @@ class AnomalyList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Card(
-              child: ListTile(
-                leading: Icon(
-                  item.severity == AnomalySeverity.unusual
-                      ? Icons.priority_high
-                      : Icons.visibility_outlined,
-                  color: item.severity == AnomalySeverity.unusual
-                      ? const Color(0xFFB42318)
-                      : const Color(0xFFB54708),
-                ),
-                title: Text(item.label),
-                subtitle: Text(item.message),
-                trailing: AnimatedEur(
-                  value: item.amount,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      item.severity == AnomalySeverity.unusual
+                          ? Icons.priority_high
+                          : Icons.visibility_outlined,
+                      color: item.severity == AnomalySeverity.unusual
+                          ? const Color(0xFF9B1C14)
+                          : const Color(0xFFB54708),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.label,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            item.message,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 96),
+                      child: Text(
+                        formatEur(item.amount),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
