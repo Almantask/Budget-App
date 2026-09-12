@@ -83,6 +83,7 @@ class TransactionsPage extends StatelessWidget {
                           personName: controller.state.household
                               .byId(tx.personId)
                               .name,
+                          unusual: controller.unusualTransactionIds.contains(tx.id),
                           onTap: () => _edit(context, controller, tx),
                         ),
                       ],
@@ -199,11 +200,13 @@ class _TxTile extends StatelessWidget {
   const _TxTile({
     required this.tx,
     required this.personName,
+    required this.unusual,
     required this.onTap,
   });
 
   final MoneyTx tx;
   final String personName;
+  final bool unusual;
   final VoidCallback onTap;
 
   @override
@@ -213,8 +216,19 @@ class _TxTile extends StatelessWidget {
       child: ListTile(
         onTap: onTap,
         title: Text(tx.merchant.isEmpty ? tx.description : tx.merchant),
-        subtitle: Text(
-          '${cat.name} · ${tx.tag.label} · $personName · ${tx.bank.shortLabel}',
+        subtitle: Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('${cat.name} · ${tx.tag.label} · $personName · ${tx.bank.shortLabel}'),
+            if (unusual)
+              const Chip(
+                visualDensity: VisualDensity.compact,
+                label: Text('Neįprasta'),
+                padding: EdgeInsets.zero,
+              ),
+          ],
         ),
         trailing: Text(
           formatSignedEur(tx.amount),

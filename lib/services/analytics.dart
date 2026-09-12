@@ -1,9 +1,11 @@
 import '../models/category.dart';
 import '../models/filters.dart';
 import '../models/insight.dart';
+import '../models/notice.dart';
 import '../models/period.dart';
 import '../models/spend_tag.dart';
 import '../models/transaction.dart';
+import 'dates.dart';
 
 class BudgetAnalytics {
   const BudgetAnalytics();
@@ -99,5 +101,104 @@ class BudgetAnalytics {
     return txs
         .map((t) => t.bookedAt)
         .reduce((a, b) => a.isBefore(b) ? a : b);
+  }
+
+  MonthPoint monthTotals(List<MoneyTx> txs, String month) {
+    var expenses = 0.0;
+    var gains = 0.0;
+    for (final tx in txs) {
+      if (monthKey(tx.bookedAt) != month) continue;
+      if (tx.isExpense) expenses += tx.absAmount;
+      if (tx.isIncome) gains += tx.amount;
+    }
+    expenses = roundMoney(expenses);
+    gains = roundMoney(gains);
+    return MonthPoint(
+      month: month,
+      label: _monthLabel(month),
+      expenses: expenses,
+      gains: gains,
+      net: roundMoney(gains - expenses),
+    );
+  }
+
+  List<MonthPoint> monthlySeries(
+    List<MoneyTx> txs,
+    String throughMonth, {
+    int count = 12,
+  }) {
+    return [
+      for (final month in monthsUntil(throughMonth, count))
+        monthTotals(txs, month),
+    ];
+  }
+
+  List<MonthPoint> fullHistory(List<MoneyTx> txs, String throughMonth) {
+    if (txs.isEmpty) return monthlySeries(txs, throughMonth, count: 1);
+    final start = monthKey(
+      txs.map((t) => t.bookedAt).reduce((a, b) => a.isBefore(b) ? a : b),
+    );
+    var count = 1;
+    var cursor = start;
+    while (cursor.compareTo(throughMonth) < 0) {
+      cursor = addMonths(cursor, 1);
+      count += 1;
+    }
+    return monthlySeries(txs, throughMonth, count: count);
+  }
+
+  List<MonthPoint> trimSeries(List<MonthPoint> series) {
+    final first = series.indexWhere(
+      (point) => point.gains > 0 || point.expenses > 0,
+    );
+    return first <= 0 ? series : series.sublist(first);
+  }
+
+  List<WeekPoint> weeklySeries(List<MoneyTx> txs, String month) {
+    final lastDay = daysInMonth(month);
+    final buckets = <WeekPoint>[];
+    for (var start = 1; start <= lastDay; start += 7) {
+      final end = start + 6 > lastDay ? lastDay : start + 6;
+      final startIso = '$month-${start.toString().padLeft(2, '0')}';
+      final endIso = '$month-${end.toString().padLeft(2, '0')}';
+      var expenses = 0.0;
+      var gains = 0.0;
+      for (final tx in txs) {
+        final key = dateKey(tx.bookedAt);
+        if (key.compareTo(startIso) < 0 || key.compareTo(endIso) > 0) continue;
+        if (tx.isExpense) expenses += tx.absAmount;
+        if (tx.isIncome) gains += tx.amount;
+      }
+      buckets.add(
+        WeekPoint(
+          key: '$start-$end',
+          label: '$start–$end',
+          expenses: roundMoney(expenses),
+          gains: roundMoney(gains),
+          net: roundMoney(gains - expenses),
+        ),
+      );
+    }
+    return buckets;
+  }
+
+  String _monthLabel(String month) {
+    const names = [
+      'saus.',
+      'vas.',
+      'kov.',
+      'bal.',
+      'geg.',
+      'birž.',
+      'liep.',
+      'rugp.',
+      'rugs.',
+      'spal.',
+      'lapkr.',
+      'gruod.',
+    ];
+    final parts = month.split('-');
+    final index = int.parse(parts[1]) - 1;
+    return '${names[index]} ${parts[0]}';
   }
 }

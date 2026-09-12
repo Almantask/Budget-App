@@ -9,6 +9,10 @@ Flutter programėlė jums ir žmonai: **iOS**, **Android** ir web peržiūra. Ba
 - Filtras pagal žmogų (numatytai **Abu**), kategoriją ir žymą
 - Savaitės, mėnesio, metų ir viso laikotarpio vaizdas
 - Delta palyginimas su praėjusiu laikotarpiu
+- **Išlaidos ir pajamos per laiką** — mėnesių ir savaičių grafikas
+- **Biudžeto ribos** su įspėjimu ir viršijimu; po sinchronizacijos — pranešimas, jei riba naujai pasiekta
+- **Mėnesio iššūkis** ir taupymo tikslas (XP, lygiai, ženkleliai)
+- **Neįprastos išlaidos** palyginti su pastaraisiais mėnesiais
 - Patarimai, kur sutaupyti, ir **didžiausia vertė** (didžiausios išlaidos, taupymo svirtys, pasikartojantys mokėjimai)
 - CSV eksportas ir kiekvieno banko CSV importas
 - Kartą į dieną auto-sync (app atidarius ir OS background task)
