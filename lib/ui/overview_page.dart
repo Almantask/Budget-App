@@ -116,7 +116,7 @@ class OverviewPage extends StatelessWidget {
       ),
     );
 
-    final compact = AppLayout.isLandscape(context) || AppLayout.isShort(context);
+    final compact = AppLayout.isShort(context);
     final names =
         '${controller.state.household.me.name} ir ${controller.state.household.partner.name}';
     final dateLabel =
@@ -230,15 +230,10 @@ class _HeroSpendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = AppLayout.isLandscape(context) || AppLayout.isShort(context);
+    final compact = AppLayout.isShort(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0C5649), Color(0xFF1A8F78)],
-        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.seed.withValues(alpha: 0.28),
@@ -247,48 +242,65 @@ class _HeroSpendCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(22, compact ? 16 : 22, 22, compact ? 14 : 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Išlaidos',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.82),
-                  ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0C5649), Color(0xFF1A8F78)],
             ),
-            const SizedBox(height: 4),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: AnimatedEur(
-                value: expenses,
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Colors.white,
-                    ),
-              ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              22,
+              compact ? 16 : 22,
+              22,
+              compact ? 14 : 18,
             ),
-            const SizedBox(height: 10),
-            DeltaBadge(
-              delta: delta,
-              deltaPct: deltaPct,
-              previousLabel: previousLabel,
-              onDark: true,
-            ),
-            const SizedBox(height: 18),
-            Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _GlassStat(label: 'Pajamos', value: income),
+                Text(
+                  'Išlaidos',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.82),
+                      ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _GlassStat(label: 'Likutis', value: net),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedEur(
+                    value: expenses,
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          color: Colors.white,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                DeltaBadge(
+                  delta: delta,
+                  deltaPct: deltaPct,
+                  previousLabel: previousLabel,
+                  onDark: true,
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _GlassStat(label: 'Pajamos', value: income),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _GlassStat(label: 'Likutis', value: net),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

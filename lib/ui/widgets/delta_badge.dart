@@ -30,24 +30,29 @@ class DeltaBadge extends StatelessWidget {
       color = improved ? AppColors.income : const Color(0xFFB42318);
     }
     final arrow = delta == 0 ? '→' : (delta < 0 ? '↓' : '↑');
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 420),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: onDark
-              ? Colors.white.withValues(alpha: 0.14)
-              : color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Text(
-            '$arrow ${formatSignedEur(delta)} (${formatPct(deltaPct)}) vs $previousLabel',
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-              height: 1.25,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: onDark
+                ? Colors.white.withValues(alpha: 0.14)
+                : color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Text(
+              '$arrow ${formatSignedEur(delta)} (${formatPct(deltaPct)}) vs $previousLabel',
+              maxLines: 1,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                height: 1.25,
+              ),
             ),
           ),
         ),

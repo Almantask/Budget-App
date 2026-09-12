@@ -4,6 +4,7 @@ import 'dart:ui' show FontFeature, PathMetric;
 import 'package:flutter/material.dart';
 
 import '../../models/notice.dart';
+import '../layout.dart';
 import '../motion.dart';
 import '../theme.dart';
 
@@ -152,7 +153,11 @@ class _TrendChartState extends State<TrendChart>
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: MediaQuery.sizeOf(context).height < 520 ? 148 : 208,
+              height: AppLayout.isShort(context)
+                  ? 128
+                  : AppLayout.isLandscape(context)
+                      ? 176
+                      : 208,
               child: labels.isEmpty
                   ? const Center(child: Text('Trūksta duomenų grafikui.'))
                   : LayoutBuilder(

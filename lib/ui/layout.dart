@@ -21,8 +21,8 @@ class AppLayout {
 
   static bool useTwoPane(BuildContext context) {
     final size = sizeOf(context);
-    return size.width >= twoPaneBreakpoint ||
-        (size.width > size.height && size.width >= 640);
+    if (size.height < 560) return false;
+    return size.width >= twoPaneBreakpoint;
   }
 
   static bool isShort(BuildContext context) => sizeOf(context).height < 520;
