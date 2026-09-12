@@ -113,10 +113,29 @@ void main() {
 
     await tester.tap(find.byTooltip('Nustatymai'));
     await tester.pumpAndSettle();
+    expect(find.widgetWithText(AlertDialog, 'Nustatymai'), findsOneWidget);
     expect(find.text('Mašinos kuro sąnaudos'), findsOneWidget);
     expect(find.text('Naudojamas kuras'), findsOneWidget);
     expect(find.text('A95'), findsOneWidget);
+    expect(find.text('A98'), findsOneWidget);
+    expect(find.text('Dyzelinas'), findsOneWidget);
+    expect(find.text('Dujos'), findsOneWidget);
+    expect(find.text('Išsaugoti'), findsOneWidget);
     expect(find.text('Istorija'), findsNothing);
     expect(find.text('Apie'), findsNothing);
+    expect(find.text('Maršrutas'), findsNothing);
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      '6,5',
+    );
+    await tester.tap(find.text('Dyzelinas'));
+    await tester.tap(find.text('Išsaugoti'));
+    await tester.pumpAndSettle();
+    expect(controller.preferences.litersPer100km, 6.5);
+    expect(controller.preferences.fuel, FuelKind.diesel);
   });
 }

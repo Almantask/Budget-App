@@ -618,34 +618,32 @@ class _StationPanel extends StatelessWidget {
 }
 
 Future<void> showTripSettingsSheet(BuildContext context, TripController trip) {
-  return showModalBottomSheet<void>(
+  return showDialog<void>(
     context: context,
-    showDragHandle: true,
     builder: (context) {
       return ChangeNotifierProvider.value(
         value: trip,
-        child: const _TripSettingsSheet(),
+        child: const _TripSettingsDialog(),
       );
     },
   );
 }
 
-class _TripSettingsSheet extends StatefulWidget {
-  const _TripSettingsSheet();
+class _TripSettingsDialog extends StatefulWidget {
+  const _TripSettingsDialog();
 
   @override
-  State<_TripSettingsSheet> createState() => _TripSettingsSheetState();
+  State<_TripSettingsDialog> createState() => _TripSettingsDialogState();
 }
 
-class _TripSettingsSheetState extends State<_TripSettingsSheet> {
+class _TripSettingsDialogState extends State<_TripSettingsDialog> {
   late final TextEditingController _consumption;
 
   @override
   void initState() {
     super.initState();
-    _consumption = TextEditingController(
-      text: context.read<TripController>().preferences.litersPer100km.toString(),
-    );
+    final liters = context.read<TripController>().preferences.litersPer100km;
+    _consumption = TextEditingController(text: _formatLiters(liters));
   }
 
   @override
@@ -654,60 +652,71 @@ class _TripSettingsSheetState extends State<_TripSettingsSheet> {
     super.dispose();
   }
 
-  Future<void> _saveConsumption(TripController trip) async {
+  String _formatLiters(double liters) {
+    if (liters == liters.roundToDouble()) return liters.toStringAsFixed(0);
+    return liters.toStringAsFixed(1);
+  }
+
+  Future<void> _save(TripController trip) async {
     final parsed = double.tryParse(_consumption.text.replaceAll(',', '.'));
-    if (parsed == null) return;
     await trip.updatePreferences(
-      trip.preferences.copyWith(litersPer100km: parsed.clamp(1, 40)),
+      trip.preferences.copyWith(
+        litersPer100km: (parsed ?? trip.preferences.litersPer100km).clamp(1, 40),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final trip = context.watch<TripController>();
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        0,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Nustatymai', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _consumption,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Mašinos kuro sąnaudos',
-              suffixText: 'l/100 km',
-              border: OutlineInputBorder(),
+    return AlertDialog(
+      title: const Text('Nustatymai'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _consumption,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Mašinos kuro sąnaudos',
+                suffixText: 'l/100 km',
+                border: OutlineInputBorder(),
+              ),
             ),
-            onSubmitted: (_) => _saveConsumption(trip),
-            onEditingComplete: () => _saveConsumption(trip),
-          ),
-          const SizedBox(height: 16),
-          Text('Naudojamas kuras', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final kind in FuelKind.values)
-                ChoiceChip(
-                  label: Text(kind.label),
-                  selected: trip.preferences.fuel == kind,
-                  onSelected: (_) {
-                    trip.updatePreferences(trip.preferences.copyWith(fuel: kind));
-                  },
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
+            const SizedBox(height: 20),
+            Text('Naudojamas kuras', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final kind in FuelKind.values)
+                  ChoiceChip(
+                    label: Text(kind.label),
+                    selected: trip.preferences.fuel == kind,
+                    onSelected: (_) {
+                      trip.updatePreferences(
+                        trip.preferences.copyWith(fuel: kind),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await _save(trip);
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          child: const Text('Išsaugoti'),
+        ),
+      ],
     );
   }
 }
