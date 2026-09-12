@@ -600,3 +600,109 @@ textarea:focus {
     padding-top: 16px;
   }
 }
+
+.notify-wrap {
+  position: relative;
+}
+
+.notify-wrap .icon-btn {
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--rose);
+  color: white;
+  font-size: 11px;
+  font-style: normal;
+  display: grid;
+  place-items: center;
+}
+
+.notify-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(380px, 86vw);
+  z-index: 30;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.notify-panel header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.notice-list {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.notice-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  text-align: left;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.notice-item small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.toasts {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  display: grid;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow);
+}
+
+.toast.warning {
+  border-color: rgba(240, 195, 106, 0.55);
+}
+
+.toast.breach {
+  border-color: rgba(255, 109, 109, 0.6);
+}
+
+.toast p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}

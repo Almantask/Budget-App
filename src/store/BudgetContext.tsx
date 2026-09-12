@@ -1,14 +1,20 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { createDemoState, createEmptyState } from '../data/seed.ts'
 import { addMonths, monthKey, toIso } from '../lib/dates.ts'
 import { deriveView } from '../lib/derive.ts'
 import { loggingStreak } from '../lib/analytics.ts'
+import { createId } from '../lib/id.ts'
+import {
+  noticesAfterSync,
+  pushDesktopNotice,
+  requestDesktopPermission,
+  snapshotFromAlerts,
+  type AlertSnapshot,
+  type ThresholdNotice,
+} from '../lib/notifications.ts'
+import { collectAlerts } from '../lib/thresholds.ts'
 import type { AppState, Budget, Tab, Transaction } from '../types.ts'
-import { clearJson, loadJson, saveJson } from './storage.ts'
-
-export function createId(): string {
-  return crypto.randomUUID()
-}
+import { clearJson, clearNoticeJson, loadJson, loadNoticeJson, saveJson, saveNoticeJson } from './storage.ts'
 
 type Action =
   | { type: 'add-transaction'; transaction: Omit<Transaction, 'id'> }
@@ -24,6 +30,11 @@ type Store = {
   state: AppState
   viewMonth: string
   tab: Tab
+}
+
+type StoredNotices = {
+  snapshot: AlertSnapshot
+  notices: ThresholdNotice[]
 }
 
 function todayMonth(): string {
@@ -89,10 +100,60 @@ const BudgetContext = createContext<ReturnType<typeof useBudgetValue> | null>(nu
 
 function useBudgetValue() {
   const [store, dispatch] = useReducer(reducer, undefined, initialStore)
+  const stored = useMemo(
+    () => loadNoticeJson<StoredNotices>({ snapshot: {}, notices: [] }),
+    [],
+  )
+  const snapshotRef = useRef(stored.snapshot)
+  const noticesRef = useRef<ThresholdNotice[]>(stored.notices)
+  const [notices, setNotices] = useState<ThresholdNotice[]>(stored.notices)
+  const [toasts, setToasts] = useState<ThresholdNotice[]>([])
+  const [desktopPermission, setDesktopPermission] = useState<NotificationPermission | 'unsupported'>(() => {
+    if (typeof Notification === 'undefined') return 'unsupported'
+    return Notification.permission
+  })
+
+  const viewMonthRef = useRef(store.viewMonth)
+  viewMonthRef.current = store.viewMonth
 
   useEffect(() => {
     saveJson(store.state)
+    const persisted = loadNoticeJson<StoredNotices>({
+      snapshot: snapshotRef.current,
+      notices: noticesRef.current,
+    })
+    const today = toIso(new Date())
+    const month = viewMonthRef.current
+    const alerts = collectAlerts(store.state, month, today)
+    const fresh = noticesAfterSync({
+      previous: persisted.snapshot,
+      alerts,
+      month,
+      at: new Date().toISOString(),
+      ids: alerts.map(() => createId()),
+    })
+    const monthSnap = snapshotFromAlerts(month, alerts)
+    const nextSnapshot: AlertSnapshot = { ...persisted.snapshot }
+    for (const key of Object.keys(nextSnapshot)) {
+      if (key.startsWith(`${month}:`)) nextSnapshot[key] = 'ok'
+    }
+    Object.assign(nextSnapshot, monthSnap)
+    snapshotRef.current = nextSnapshot
+
+    if (fresh.length > 0) {
+      const nextNotices = [...fresh, ...noticesRef.current].slice(0, 40)
+      noticesRef.current = nextNotices
+      setNotices(nextNotices)
+      setToasts((current) => [...fresh, ...current].slice(0, 4))
+      for (const notice of fresh) pushDesktopNotice(notice)
+    }
+    saveNoticeJson({ snapshot: nextSnapshot, notices: noticesRef.current })
   }, [store.state])
+
+  useEffect(() => {
+    noticesRef.current = notices
+    saveNoticeJson({ snapshot: snapshotRef.current, notices })
+  }, [notices])
 
   const today = toIso(new Date())
   const now = useMemo(() => new Date(`${today}T12:00:00`), [today])
@@ -105,11 +166,23 @@ function useBudgetValue() {
     [store.state.transactions, now],
   )
 
+  function resetNotices() {
+    snapshotRef.current = {}
+    noticesRef.current = []
+    setNotices([])
+    setToasts([])
+    clearNoticeJson()
+  }
+
   return {
     ...store,
     derived,
     streak,
     now,
+    notices,
+    toasts,
+    desktopPermission,
+    unreadCount: notices.filter((notice) => !notice.read).length,
     maxMonth: todayMonth(),
     minMonth: addMonths(todayMonth(), -24),
     addTransaction(transaction: Omit<Transaction, 'id'>) {
@@ -128,14 +201,35 @@ function useBudgetValue() {
       dispatch({ type: 'set-tab', tab })
     },
     loadDemo() {
+      resetNotices()
       clearJson()
       dispatch({ type: 'load-demo' })
     },
     startFresh() {
+      resetNotices()
       dispatch({ type: 'start-fresh' })
     },
     dismissDemo() {
       dispatch({ type: 'dismiss-demo' })
+    },
+    dismissToast(id: string) {
+      setToasts((current) => current.filter((toast) => toast.id !== id))
+    },
+    markNoticeRead(id: string) {
+      setNotices((current) => current.map((notice) => (notice.id === id ? { ...notice, read: true } : notice)))
+    },
+    markAllRead() {
+      setNotices((current) => current.map((notice) => ({ ...notice, read: true })))
+    },
+    openNotice(notice: ThresholdNotice) {
+      setNotices((current) => current.map((item) => (item.id === notice.id ? { ...item, read: true } : item)))
+      dispatch({ type: 'set-month', month: notice.month })
+      dispatch({ type: 'set-tab', tab: 'budgets' })
+    },
+    async enableDesktopNotifications() {
+      const permission = await requestDesktopPermission()
+      setDesktopPermission(permission)
+      return permission
     },
   }
 }

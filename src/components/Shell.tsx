@@ -4,6 +4,7 @@ import { formatMoney } from '../lib/money.ts'
 import { useBudget } from '../store/BudgetContext.tsx'
 import { Budgets } from './Budgets.tsx'
 import { Ledger } from './Ledger.tsx'
+import { NotificationCenter } from './NotificationCenter.tsx'
 import { Overview } from './Overview.tsx'
 import { Quests } from './Quests.tsx'
 import type { Tab } from '../types.ts'
@@ -58,6 +59,7 @@ export function Shell() {
               <ChevronRight size={18} />
             </button>
           </div>
+          <NotificationCenter />
           <div className="level-chip" title={`${derived.level.totalXp} XP`}>
             <div className="level-badge">{derived.level.level}</div>
             <div className="level-meta">

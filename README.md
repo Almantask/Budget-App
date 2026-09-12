@@ -8,6 +8,7 @@ It keeps a local ledger of expenses and gains, graphs them over time, warns you 
 
 - **Over-time graph** — monthly (and weekly) view of expenses, gains, and net savings.
 - **Budget thresholds** — per-category and overall monthly limits with a warning line you choose. Grove also flags *pace* risk when the current daily spend would miss the limit.
+- **Threshold notifications** — after Grove syncs the ledger to local storage, it raises a toast (and an optional desktop notification) when a budget newly crosses its warning line or goes over the limit. The bell keeps a history.
 - **Monthly stretch goals** — each month looks at your recent savings and asks for a little more (usually 8–12%). A hard month resets to a gentler target instead of stacking punishment. Quests, XP, levels, streaks, and badges keep the habit going.
 
 Data stays in your browser (`localStorage`). There is no server.
