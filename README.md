@@ -30,10 +30,11 @@ Pirmą kartą įkeliami demo šeimos duomenys, kad iškart matytumėte apžvalg�
 
 ## Tikri bankai (PSD2)
 
-1. Susikurkite nemokamą [GoCardless Bank Account Data](https://bankaccountdata.gocardless.com/) paskyrą.
-2. Nustatymuose įrašykite `secret_id` ir `secret_key` — jie lieka įrenginyje.
-3. Bankų skiltyje spauskite **Susieti per Open Banking**.
-4. Wise papildomai priima asmeninį API token.
+1. Užsiregistruokite [Enable Banking](https://enablebanking.com/) ir įkelkite RSA sertifikatą — gausite application ID.
+2. Nustatymuose įrašykite application ID ir privatų RSA raktą (PEM). Jie lieka įrenginyje.
+3. Redirect URL turi būti pridėtas Enable Banking valdymo skydelyje. Numatytoji reikšmė: `budgetapp://enable-banking/callback`.
+4. Bankų skiltyje spauskite **Susieti per Open Banking**, patvirtinkite banke, tada įklijuokite grįžimo nuorodą su `code`.
+5. Wise papildomai priima asmeninį API token.
 
 Be raktų veikia demo sync ir CSV importas iš banko išrašų.
 
@@ -52,5 +53,5 @@ Artifactus rasite GitHub Actions job išklotinėje. Release APK CI pasirašo deb
 ## Struktūra
 
 - `lib/services` — kategorijos, analitika, CSV, įžvalgos
-- `lib/banks` — GoCardless, Wise API, demo connector, kasdienis sync
+- `lib/banks` — Enable Banking, Wise API, demo connector, kasdienis sync
 - `lib/ui` — apžvalga, kelionė (degalinės maršrute), operacijos, įžvalgos, bankai, nustatymai

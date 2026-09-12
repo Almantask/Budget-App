@@ -127,4 +127,53 @@ void main() {
     expect(find.text('Taupymo tikslas'), findsOneWidget);
     expect(find.text('Mėnesio iššūkis'), findsOneWidget);
   });
+
+  testWidgets('settings and banks describe Enable Banking', (tester) async {
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = BudgetController(
+      store: BudgetStore(),
+      scheduler: const _NoopScheduler(),
+      now: () => DateTime(2026, 9, 12, 12),
+    );
+    await controller.load();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: const MaterialApp(
+          locale: Locale('lt'),
+          localizationsDelegates: [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: [Locale('lt')],
+          home: HomeShell(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -2400));
+    await tester.pumpAndSettle();
+    expect(find.text('Enable Banking application ID'), findsOneWidget);
+    expect(find.text('Enable Banking RSA private key (PEM)'), findsOneWidget);
+    expect(find.text('GoCardless secret_id'), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Bankai'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Kartą į dieną auto-sync'), findsOneWidget);
+    expect(find.text('Perjungti ryšį'), findsWidgets);
+    expect(find.text('GoCardless'), findsNothing);
+  });
 }

@@ -258,35 +258,82 @@ class BudgetController extends ChangeNotifier {
     }
   }
 
-  Future<void> connectBank(BankId bank, {String? personId}) async {
+  Future<Uri?> connectBank(BankId bank, {String? personId}) async {
     final owner = personId ?? Person.meId;
     try {
       final session = await _sync.startOpenBankingLink(
         credentials: credentials,
         bank: bank,
-        redirectUri: 'https://budget.local/gocardless/callback',
+        redirectUri: credentials.redirectUri,
         personId: owner,
       );
       final existing = state.accounts.where((a) => a.bank != bank).toList();
+      final live = credentials.hasEnableBanking;
       final account = ConnectedAccount(
         id: 'acc-${bank.name}',
         bank: bank,
         personId: owner,
         displayName: '${bank.label} sąskaita',
-        gocardlessRequisitionId: session.sessionId,
-        status: credentials.hasGoCardless
-            ? AccountLinkStatus.pending
-            : AccountLinkStatus.demo,
+        enableBankingAuthorizationId: live ? session.sessionId : null,
+        authorizationUrl: live ? session.authorizationUrl : null,
+        status: live ? AccountLinkStatus.pending : AccountLinkStatus.demo,
         lastSyncedAt: now(),
       );
       state = state.copyWith(accounts: [...existing, account]);
       await _store.save(state);
-      statusMessage = credentials.hasGoCardless
-          ? 'Atidarykite banko sutikimą: ${session.authorizationUrl}'
-          : '${bank.label} susietas demo režimu. Įveskite GoCardless raktus gyvam PSD2.';
+      statusMessage = live
+          ? 'Patvirtinkite ${bank.label} Enable Banking sutikimą naršyklėje, tada įklijuokite grįžimo nuorodą.'
+          : '${bank.label} susietas demo režimu. Įveskite Enable Banking raktus gyvam PSD2.';
       notifyListeners();
+      if (!live) return null;
+      return Uri.parse(session.authorizationUrl);
     } catch (error) {
       statusMessage = 'Nepavyko susieti ${bank.label}: $error';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<void> completeBankLink(BankId bank, String callbackOrCode) async {
+    try {
+      final linked = await _sync.completeOpenBankingLink(
+        credentials: credentials,
+        callbackOrCode: callbackOrCode,
+      );
+      var found = false;
+      final accounts = state.accounts.map((account) {
+        if (account.bank != bank) return account;
+        found = true;
+        return account.copyWith(
+          enableBankingSessionId: linked.sessionId,
+          enableBankingAccountId: linked.accountId,
+          iban: linked.iban,
+          displayName: linked.displayName ?? account.displayName,
+          status: AccountLinkStatus.connected,
+        );
+      }).toList();
+      if (!found) {
+        accounts.add(
+          ConnectedAccount(
+            id: 'acc-${bank.name}',
+            bank: bank,
+            personId: Person.meId,
+            displayName: linked.displayName ?? '${bank.label} sąskaita',
+            iban: linked.iban,
+            enableBankingSessionId: linked.sessionId,
+            enableBankingAccountId: linked.accountId,
+            status: AccountLinkStatus.connected,
+            lastSyncedAt: now(),
+          ),
+        );
+      }
+      state = state.copyWith(accounts: accounts);
+      await _store.save(state);
+      statusMessage = '${bank.label} prijungtas per Enable Banking.';
+      notifyListeners();
+      await syncAll(triggeredBy: '${bank.label} sinchronizacija');
+    } catch (error) {
+      statusMessage = 'Nepavyko užbaigti ${bank.label} susiejimo: $error';
       notifyListeners();
     }
   }
