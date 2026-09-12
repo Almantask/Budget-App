@@ -195,6 +195,10 @@ class AnomalyEngine {
         );
       }
 
+      if (category.id == 'housing' || category.id == 'utilities') {
+        continue;
+      }
+
       final historyCharges = txs
           .where(
             (tx) =>

@@ -234,6 +234,41 @@ void main() {
       expect(found.any((item) => item.categoryId == 'dining'), isFalse);
     });
 
+    test('does not flag a typical electricity bill among smaller utility charges',
+        () {
+      final txs = [
+        for (final month in [4, 5, 6, 7, 8, 9]) ...[
+          _tx(
+            id: 'ignitis-$month',
+            categoryId: 'utilities',
+            amount: -78,
+            bookedAt: DateTime(2026, month, 12),
+            merchant: 'Ignitis',
+          ),
+          _tx(
+            id: 'water-$month',
+            categoryId: 'utilities',
+            amount: -21.5,
+            bookedAt: DateTime(2026, month, 14),
+            merchant: 'Vilniaus vandenys',
+          ),
+        ],
+      ];
+      final found = anomalies.findSpendingAnomalies(
+        txs: txs,
+        viewMonth: '2026-09',
+        today: DateTime(2026, 9, 12),
+      );
+      expect(
+        found.any(
+          (item) =>
+              item.kind == AnomalyKind.largeCharge &&
+              item.transactionId == 'ignitis-9',
+        ),
+        isFalse,
+      );
+    });
+
     test('flags a single charge that is much larger than typical lines', () {
       final txs = [
         _tx(id: 'f1', categoryId: 'leisure', amount: -18, bookedAt: DateTime(2026, 5, 14)),
