@@ -419,7 +419,7 @@ textarea:focus {
 
 .tx {
   display: grid;
-  grid-template-columns: 88px 1fr auto auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto 34px;
   gap: 12px;
   align-items: center;
   padding: 12px 14px;
@@ -536,6 +536,8 @@ textarea:focus {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .chip.warning,
 .chip.pace {
