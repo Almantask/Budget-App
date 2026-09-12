@@ -16,7 +16,7 @@ Flutter programėlė jums ir žmonai: **iOS**, **Android** ir web peržiūra. Ba
 - Patarimai, kur sutaupyti, ir **didžiausia vertė** (didžiausios išlaidos, taupymo svirtys, pasikartojantys mokėjimai)
 - CSV eksportas ir kiekvieno banko CSV importas
 - Kartą į dieną auto-sync (app atidarius ir OS background task)
-- **Kelionė**: įveskite tikslą — maršrutas parenkamas nuo dabartinės vietos, palei kelią rodomos degalinės su adresu ir laiku maksimaliu greičiu; sąrašą galima sutraukti
+- **Kelionė**: įveskite tikslą — maršrutas parenkamas nuo dabartinės vietos, arba pasirinkite **Aplink mane**. Palei kelią rodomos degalinės su adresu ir laiku maksimaliu greičiu; sąrašą galima sutraukti. Nustatymuose — kuro sąnaudos ir naudojamas kuras.
 
 ## Paleidimas
 
