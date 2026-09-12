@@ -75,4 +75,30 @@ class FakeTripRoutingService extends TripRoutingService {
           ],
         );
   }
+
+  int aroundMeCalls = 0;
+
+  @override
+  Future<TripPlan> planAroundMe(GeoPoint origin) async {
+    aroundMeCalls += 1;
+    if (planError != null) throw TripRoutingException(planError!);
+    return TripPlan(
+      origin: origin,
+      destination: PlaceSuggestion.aroundMe(origin),
+      polyline: const [],
+      totalEtaAtMaxSpeed: Duration.zero,
+      totalDistanceMeters: 0,
+      aroundMe: true,
+      stations: [
+        FuelStation(
+          id: 'n-near',
+          name: 'Viada',
+          address: 'Geležinio Vilko g. 2, Vilnius',
+          point: origin,
+          etaAtMaxSpeed: const Duration(minutes: 3),
+          distanceMeters: 900,
+        ),
+      ],
+    );
+  }
 }

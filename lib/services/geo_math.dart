@@ -128,6 +128,24 @@ String stationNameFromTags(Map<String, String> tags) {
   return 'Degalinė';
 }
 
+Set<FuelKind> fuelsFromTags(Map<String, String> tags) {
+  final fuels = <FuelKind>{};
+  bool yes(String key) {
+    final value = (tags[key] ?? '').toLowerCase();
+    return value == 'yes' || value == 'true' || value == '1';
+  }
+
+  if (yes('fuel:octane_95') || yes('fuel:e95') || yes('fuel:petrol')) {
+    fuels.add(FuelKind.petrol95);
+  }
+  if (yes('fuel:octane_98') || yes('fuel:e98')) {
+    fuels.add(FuelKind.petrol98);
+  }
+  if (yes('fuel:diesel')) fuels.add(FuelKind.diesel);
+  if (yes('fuel:lpg') || yes('fuel:autogas')) fuels.add(FuelKind.lpg);
+  return fuels;
+}
+
 double _rad(double degrees) => degrees * math.pi / 180;
 
 double _projectionT(GeoPoint p, GeoPoint a, GeoPoint b) {

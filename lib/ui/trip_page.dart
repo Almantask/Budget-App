@@ -23,6 +23,8 @@ class _TripPageState extends State<TripPage> {
   late final MapController _map;
   late final FocusNode _focus;
 
+  String? _fittedKey;
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +49,12 @@ class _TripPageState extends State<TripPage> {
     }
     final plan = trip.plan;
     if (plan != null && widget.showMap && mounted) {
-      _fitPlan(plan);
+      final key =
+          '${plan.aroundMe}|${plan.destination.label}|${plan.origin.lat.toStringAsFixed(5)}|${plan.origin.lon.toStringAsFixed(5)}|${plan.stations.length}|${plan.polyline.length}';
+      if (key != _fittedKey) {
+        _fittedKey = key;
+        _fitPlan(plan);
+      }
     }
   }
 
@@ -77,6 +84,8 @@ class _TripPageState extends State<TripPage> {
             LatLng(maxLat, maxLon),
           ),
           padding: const EdgeInsets.fromLTRB(40, 160, 40, 200),
+          maxZoom: plan.aroundMe ? 13 : 16,
+          minZoom: 8,
         ),
       );
     } catch (_) {}
@@ -119,7 +128,11 @@ class _TripPageState extends State<TripPage> {
     trip.selectStation(station);
     if (!widget.showMap) return;
     try {
-      _map.move(LatLng(station.point.lat, station.point.lon), 14);
+      final currentZoom = _map.camera.zoom;
+      _map.move(
+        LatLng(station.point.lat, station.point.lon),
+        currentZoom < 13 ? 13 : currentZoom,
+      );
     } catch (_) {}
   }
 }
@@ -194,7 +207,7 @@ class _MapView extends StatelessWidget {
                 color: Color(0xFF1D4ED8),
               ),
             ),
-            if (plan != null)
+            if (plan != null && !plan.aroundMe)
               Marker(
                 point: LatLng(
                   plan.destination.point.lat,
@@ -208,7 +221,7 @@ class _MapView extends StatelessWidget {
                 ),
               ),
             if (plan != null)
-              for (final station in plan.stations)
+              for (final station in trip.visibleStations)
                 Marker(
                   point: LatLng(station.point.lat, station.point.lon),
                   width: 36,
@@ -290,6 +303,11 @@ class _SearchCard extends StatelessWidget {
                         ),
                   ),
                 ),
+                IconButton(
+                  tooltip: 'Nustatymai',
+                  onPressed: () => showTripSettingsSheet(context, trip),
+                  icon: const Icon(Icons.tune),
+                ),
               ],
             ),
             if (trip.originNote != null) ...[
@@ -321,6 +339,29 @@ class _SearchCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilterChip(
+                avatar: Icon(
+                  Icons.near_me,
+                  size: 18,
+                  color: trip.aroundMeSelected
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : Theme.of(context).colorScheme.primary,
+                ),
+                label: const Text('Aplink mane'),
+                selected: trip.aroundMeSelected,
+                onSelected: (selected) {
+                  focus.unfocus();
+                  if (selected) {
+                    trip.selectAroundMe();
+                  } else {
+                    trip.clearDestination();
+                  }
+                },
               ),
             ),
             if (trip.searching)
@@ -366,9 +407,11 @@ class _SearchCard extends StatelessWidget {
             if (trip.plan != null && !trip.planning) ...[
               const SizedBox(height: 10),
               Text(
-                'Iki ${trip.plan!.destination.label} · '
-                '${formatDistanceKm(trip.plan!.totalDistanceMeters)} · '
-                'maks. greičiu ${formatMaxSpeedEta(trip.plan!.totalEtaAtMaxSpeed)}',
+                trip.plan!.aroundMe
+                    ? 'Aplink jus · ${trip.visibleStations.length} degalinės · ${trip.preferences.fuel.label}'
+                    : 'Iki ${trip.plan!.destination.label} · '
+                        '${formatDistanceKm(trip.plan!.totalDistanceMeters)} · '
+                        'maks. greičiu ${formatMaxSpeedEta(trip.plan!.totalEtaAtMaxSpeed)}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -400,7 +443,7 @@ class _StationPanel extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final stations = trip.plan?.stations ?? const <FuelStation>[];
+    final stations = trip.visibleStations;
     final expanded = trip.listExpanded;
     final scheme = Theme.of(context).colorScheme;
 
@@ -503,7 +546,9 @@ class _StationPanel extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Text(
-                    'Palei šį kelią degalinių nerasta.',
+                    trip.plan?.aroundMe == true
+                        ? 'Netoliese degalinių nerasta.'
+                        : 'Palei šį kelią degalinių nerasta.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -512,6 +557,101 @@ class _StationPanel extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+Future<void> showTripSettingsSheet(BuildContext context, TripController trip) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) {
+      return ChangeNotifierProvider.value(
+        value: trip,
+        child: const _TripSettingsSheet(),
+      );
+    },
+  );
+}
+
+class _TripSettingsSheet extends StatefulWidget {
+  const _TripSettingsSheet();
+
+  @override
+  State<_TripSettingsSheet> createState() => _TripSettingsSheetState();
+}
+
+class _TripSettingsSheetState extends State<_TripSettingsSheet> {
+  late final TextEditingController _consumption;
+
+  @override
+  void initState() {
+    super.initState();
+    _consumption = TextEditingController(
+      text: context.read<TripController>().preferences.litersPer100km.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _consumption.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveConsumption(TripController trip) async {
+    final parsed = double.tryParse(_consumption.text.replaceAll(',', '.'));
+    if (parsed == null) return;
+    await trip.updatePreferences(
+      trip.preferences.copyWith(litersPer100km: parsed.clamp(1, 40)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trip = context.watch<TripController>();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        0,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Nustatymai', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _consumption,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Mašinos kuro sąnaudos',
+              suffixText: 'l/100 km',
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (_) => _saveConsumption(trip),
+            onEditingComplete: () => _saveConsumption(trip),
+          ),
+          const SizedBox(height: 16),
+          Text('Naudojamas kuras', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final kind in FuelKind.values)
+                ChoiceChip(
+                  label: Text(kind.label),
+                  selected: trip.preferences.fuel == kind,
+                  onSelected: (_) {
+                    trip.updatePreferences(trip.preferences.copyWith(fuel: kind));
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
       ),
     );
   }

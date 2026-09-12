@@ -5,17 +5,23 @@ import 'package:flutter/foundation.dart';
 import '../models/geo.dart';
 import '../services/geo_math.dart';
 import '../services/location_source.dart';
+import '../services/trip_preferences.dart';
 import '../services/trip_routing.dart';
 
 class TripController extends ChangeNotifier {
   TripController({
     TripRoutingService? routing,
     LocationSource? location,
+    TripPreferencesStore? preferencesStore,
   })  : routing = routing ?? TripRoutingService(),
-        location = location ?? const DeviceLocationSource();
+        location = location ?? const DeviceLocationSource(),
+        preferencesStore = preferencesStore ?? SharedTripPreferencesStore() {
+    unawaited(loadPreferences());
+  }
 
   final TripRoutingService routing;
   final LocationSource location;
+  final TripPreferencesStore preferencesStore;
 
   GeoPoint origin = vilniusDefault;
   String originLabel = 'Dabartinė vieta';
@@ -27,6 +33,7 @@ class TripController extends ChangeNotifier {
   PlaceSuggestion? destination;
   TripPlan? plan;
   FuelStation? selectedStation;
+  TripPreferences preferences = const TripPreferences();
 
   bool listExpanded = true;
   bool locating = false;
@@ -35,6 +42,27 @@ class TripController extends ChangeNotifier {
   String? error;
 
   Timer? _debounce;
+
+  bool get aroundMeSelected => plan?.aroundMe == true || destination?.isAroundMe == true;
+
+  List<FuelStation> get visibleStations {
+    final stations = plan?.stations ?? const <FuelStation>[];
+    return [
+      for (final station in stations)
+        if (station.offers(preferences.fuel)) station,
+    ];
+  }
+
+  Future<void> loadPreferences() async {
+    preferences = await preferencesStore.load();
+    notifyListeners();
+  }
+
+  Future<void> updatePreferences(TripPreferences value) async {
+    preferences = value;
+    notifyListeners();
+    await preferencesStore.save(value);
+  }
 
   Future<void> ensureOrigin() async {
     if (locating) return;
@@ -56,7 +84,11 @@ class TripController extends ChangeNotifier {
       notifyListeners();
     }
     if (destination != null && previous != origin) {
-      await selectDestination(destination!);
+      if (destination!.isAroundMe) {
+        await selectAroundMe();
+      } else {
+        await selectDestination(destination!);
+      }
     }
   }
 
@@ -110,6 +142,36 @@ class TripController extends ChangeNotifier {
     notifyListeners();
     try {
       plan = await routing.planTrip(origin: origin, destination: place);
+      listExpanded = true;
+      planning = false;
+      notifyListeners();
+    } catch (e) {
+      plan = null;
+      planning = false;
+      error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> selectAroundMe() async {
+    if (planning) return;
+    if (plan?.aroundMe == true && plan!.origin == origin) {
+      query = PlaceSuggestion.aroundMeLabel;
+      destination = PlaceSuggestion.aroundMe(origin);
+      suggestions = const [];
+      notifyListeners();
+      return;
+    }
+    _debounce?.cancel();
+    query = PlaceSuggestion.aroundMeLabel;
+    destination = PlaceSuggestion.aroundMe(origin);
+    suggestions = const [];
+    selectedStation = null;
+    error = null;
+    planning = true;
+    notifyListeners();
+    try {
+      plan = await routing.planAroundMe(origin);
       listExpanded = true;
       planning = false;
       notifyListeners();

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:budget_app/models/geo.dart';
+import 'package:budget_app/services/trip_preferences.dart';
 import 'package:budget_app/state/trip_controller.dart';
 import 'package:budget_app/ui/trip_page.dart';
 
@@ -26,6 +27,7 @@ void main() {
     final controller = TripController(
       routing: routing,
       location: FakeLocationSource(),
+      preferencesStore: MemoryTripPreferencesStore(),
     );
 
     await tester.pumpWidget(
@@ -68,5 +70,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Savanorių pr. 174, Vilnius'), findsNothing);
     expect(find.byTooltip('Išskleisti'), findsOneWidget);
+  });
+
+  testWidgets('around me lists nearby stations and settings stay simple',
+      (tester) async {
+    tester.view.physicalSize = const Size(1200, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final routing = FakeTripRoutingService();
+    final controller = TripController(
+      routing: routing,
+      location: FakeLocationSource(),
+      preferencesStore: MemoryTripPreferencesStore(),
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: const MaterialApp(
+          locale: Locale('lt'),
+          localizationsDelegates: [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: Scaffold(body: TripPage(showMap: false)),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text('Aplink mane'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(routing.aroundMeCalls, 1);
+    expect(find.text('Geležinio Vilko g. 2, Vilnius'), findsOneWidget);
+    expect(find.text('3 min'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Nustatymai'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mašinos kuro sąnaudos'), findsOneWidget);
+    expect(find.text('Naudojamas kuras'), findsOneWidget);
+    expect(find.text('A95'), findsOneWidget);
+    expect(find.text('Istorija'), findsNothing);
+    expect(find.text('Apie'), findsNothing);
   });
 }

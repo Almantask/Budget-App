@@ -123,6 +123,20 @@ class TripRoutingService {
     );
   }
 
+  Future<TripPlan> planAroundMe(GeoPoint origin) async {
+    final stations = await _stationsNear(origin, radiusMeters: 12000);
+    final withEta = await _attachEtas(origin, stations, [origin]);
+    return TripPlan(
+      origin: origin,
+      destination: PlaceSuggestion.aroundMe(origin),
+      polyline: const [],
+      totalEtaAtMaxSpeed: Duration.zero,
+      totalDistanceMeters: 0,
+      stations: withEta,
+      aroundMe: true,
+    );
+  }
+
   Future<_OsrmRoute> _drivingRoute(GeoPoint from, GeoPoint to) async {
     final path =
         '$osrmBase/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}';
@@ -167,11 +181,32 @@ class TripRoutingService {
   Future<List<_RawStation>> _stationsAlong(List<GeoPoint> polyline) async {
     final sampled = samplePolyline(polyline, maxPoints: 40);
     final around = sampled.map((p) => '${p.lat},${p.lon}').join(',');
+    return _stationsFromOverpass(
+      '(around:${corridorMeters.round()},$around)',
+      polylineFilter: polyline,
+    );
+  }
+
+  Future<List<_RawStation>> _stationsNear(
+    GeoPoint origin, {
+    required double radiusMeters,
+  }) {
+    return _stationsFromOverpass(
+      '(around:${radiusMeters.round()},${origin.lat},${origin.lon})',
+      originForDistance: origin,
+    );
+  }
+
+  Future<List<_RawStation>> _stationsFromOverpass(
+    String aroundClause, {
+    List<GeoPoint>? polylineFilter,
+    GeoPoint? originForDistance,
+  }) async {
     final query = '''
 [out:json][timeout:25];
 (
-  node["amenity"="fuel"](around:${corridorMeters.round()},$around);
-  way["amenity"="fuel"](around:${corridorMeters.round()},$around);
+  node["amenity"="fuel"]$aroundClause;
+  way["amenity"="fuel"]$aroundClause;
 );
 out center tags;
 ''';
@@ -194,7 +229,10 @@ out center tags;
       if (raw is! Map) continue;
       final point = _elementPoint(raw);
       if (point == null) continue;
-      if (distanceToPolylineMeters(point, polyline) > corridorMeters) continue;
+      if (polylineFilter != null &&
+          distanceToPolylineMeters(point, polylineFilter) > corridorMeters) {
+        continue;
+      }
       final id = '${raw['type']}-${raw['id']}';
       if (!seen.add(id)) continue;
       final tags = _stringTags(raw['tags']);
@@ -205,7 +243,12 @@ out center tags;
           address: stationAddressFromTags(tags),
           tags: tags,
           point: point,
-          alongMeters: distanceAlongPolylineMeters(point, polyline),
+          alongMeters: polylineFilter != null
+              ? distanceAlongPolylineMeters(point, polylineFilter)
+              : originForDistance != null
+                  ? haversineMeters(originForDistance, point)
+                  : 0,
+          fuels: fuelsFromTags(tags),
         ),
       );
     }
@@ -247,6 +290,7 @@ out center tags;
             routedDuration: routed,
           ),
           distanceMeters: distance > 0 ? distance : haversineMeters(origin, raw.point),
+          fuels: raw.fuels,
         ),
       );
     }
@@ -406,6 +450,7 @@ class _RawStation {
     required this.tags,
     required this.point,
     required this.alongMeters,
+    required this.fuels,
   });
 
   final String id;
@@ -414,4 +459,5 @@ class _RawStation {
   final Map<String, String> tags;
   final GeoPoint point;
   final double alongMeters;
+  final Set<FuelKind> fuels;
 }

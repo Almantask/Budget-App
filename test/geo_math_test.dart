@@ -28,6 +28,10 @@ void main() {
       'Ukmergės g. 240, Vilnius',
     );
     expect(stationNameFromTags({'brand': 'Viada'}), 'Viada');
+    expect(
+      fuelsFromTags({'fuel:diesel': 'yes'}),
+      {FuelKind.diesel},
+    );
   });
 
   test('eta prefers routed duration and falls back to 130 km/h', () {
