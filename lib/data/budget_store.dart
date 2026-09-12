@@ -18,8 +18,9 @@ class BudgetStore {
         _secure = secure ?? const FlutterSecureStorage();
 
   static const _stateKey = 'budget_state_v1';
-  static const _secretIdKey = 'gc_secret_id';
-  static const _secretKeyKey = 'gc_secret_key';
+  static const _applicationIdKey = 'eb_application_id';
+  static const _privateKeyKey = 'eb_private_key';
+  static const _redirectUriKey = 'eb_redirect_uri';
   static const _wiseKey = 'wise_api_token';
   static const dailySyncTask = 'lt.almantask.budget.dailySync';
 
@@ -48,8 +49,9 @@ class BudgetStore {
   Future<BankCredentials> loadCredentials() async {
     try {
       return BankCredentials(
-        gocardlessSecretId: await _secure.read(key: _secretIdKey),
-        gocardlessSecretKey: await _secure.read(key: _secretKeyKey),
+        enableBankingApplicationId: await _secure.read(key: _applicationIdKey),
+        enableBankingPrivateKey: await _secure.read(key: _privateKeyKey),
+        enableBankingRedirectUri: await _secure.read(key: _redirectUriKey),
         wiseApiToken: await _secure.read(key: _wiseKey),
       );
     } catch (_) {
@@ -59,8 +61,15 @@ class BudgetStore {
 
   Future<void> saveCredentials(BankCredentials credentials) async {
     try {
-      await _writeOrDelete(_secretIdKey, credentials.gocardlessSecretId);
-      await _writeOrDelete(_secretKeyKey, credentials.gocardlessSecretKey);
+      await _writeOrDelete(
+        _applicationIdKey,
+        credentials.enableBankingApplicationId,
+      );
+      await _writeOrDelete(_privateKeyKey, credentials.enableBankingPrivateKey);
+      await _writeOrDelete(
+        _redirectUriKey,
+        credentials.enableBankingRedirectUri,
+      );
       await _writeOrDelete(_wiseKey, credentials.wiseApiToken);
     } catch (_) {}
   }
