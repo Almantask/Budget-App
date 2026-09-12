@@ -16,6 +16,7 @@ Flutter programėlė jums ir žmonai: **iOS**, **Android** ir web peržiūra. Ba
 - Patarimai, kur sutaupyti, ir **didžiausia vertė** (didžiausios išlaidos, taupymo svirtys, pasikartojantys mokėjimai)
 - CSV eksportas ir kiekvieno banko CSV importas
 - Kartą į dieną auto-sync (app atidarius ir OS background task)
+- **Kelionė**: įveskite tikslą — maršrutas parenkamas nuo dabartinės vietos, palei kelią rodomos degalinės su adresu ir laiku maksimaliu greičiu; sąrašą galima sutraukti
 
 ## Paleidimas
 
@@ -52,4 +53,4 @@ Artifactus rasite GitHub Actions job išklotinėje. Release APK CI pasirašo deb
 
 - `lib/services` — kategorijos, analitika, CSV, įžvalgos
 - `lib/banks` — GoCardless, Wise API, demo connector, kasdienis sync
-- `lib/ui` — apžvalga, operacijos, įžvalgos, bankai, nustatymai
+- `lib/ui` — apžvalga, kelionė (degalinės maršrute), operacijos, įžvalgos, bankai, nustatymai

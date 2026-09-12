@@ -73,6 +73,44 @@ void main() {
     expect(find.text('Išlaidos ir pajamos per laiką'), findsOneWidget);
   });
 
+  testWidgets('phone layout shows Kelionė tab without extra menus',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = BudgetController(
+      store: BudgetStore(),
+      scheduler: const _NoopScheduler(),
+      now: () => DateTime(2026, 9, 12, 12),
+    );
+    await controller.load();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: const MaterialApp(
+          locale: Locale('lt'),
+          localizationsDelegates: [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: [Locale('lt')],
+          home: HomeShell(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Kelionė'), findsOneWidget);
+    expect(find.text('Ieškoti degalinės'), findsNothing);
+    expect(find.text('Maršrutas'), findsNothing);
+    expect(find.text('Istorija'), findsNothing);
+    expect(find.text('Apie'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('app loads demo household', (tester) async {
     final controller = BudgetController(
       scheduler: const _NoopScheduler(),

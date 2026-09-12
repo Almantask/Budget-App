@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/budget_controller.dart';
+import '../state/trip_controller.dart';
 import 'banks_page.dart';
 import 'insights_page.dart';
 import 'overview_page.dart';
 import 'settings_page.dart';
 import 'transactions_page.dart';
+import 'trip_page.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -17,6 +19,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int index = 0;
+  late final TripController tripController = TripController();
 
   @override
   void initState() {
@@ -27,6 +30,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    tripController.dispose();
     super.dispose();
   }
 
@@ -40,15 +44,21 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BudgetController>();
-    final pages = const [
-      OverviewPage(),
-      TransactionsPage(),
-      InsightsPage(),
-      BanksPage(),
-      SettingsPage(),
+    const tripIndex = 1;
+    final pages = [
+      const OverviewPage(),
+      ChangeNotifierProvider.value(
+        value: tripController,
+        child: const TripPage(),
+      ),
+      const TransactionsPage(),
+      const InsightsPage(),
+      const BanksPage(),
+      const SettingsPage(),
     ];
     final titles = const [
       'Apžvalga',
+      'Kelionė',
       'Operacijos',
       'Įžvalgos',
       'Bankai',
@@ -56,18 +66,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(titles[index]),
-        actions: [
-          IconButton(
-            tooltip: 'Sinchronizuoti',
-            onPressed: controller.syncing
-                ? null
-                : () => controller.syncAll(triggeredBy: 'Rankinis sync'),
-            icon: const Icon(Icons.sync),
-          ),
-        ],
-      ),
+      appBar: index == tripIndex
+          ? null
+          : AppBar(
+              title: Text(titles[index]),
+              actions: [
+                IconButton(
+                  tooltip: 'Sinchronizuoti',
+                  onPressed: controller.syncing
+                      ? null
+                      : () => controller.syncAll(triggeredBy: 'Rankinis sync'),
+                  icon: const Icon(Icons.sync),
+                ),
+              ],
+            ),
       body: controller.loading
           ? const Center(child: CircularProgressIndicator())
           : pages[index],
@@ -79,6 +91,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             icon: Icon(Icons.pie_chart_outline),
             selectedIcon: Icon(Icons.pie_chart),
             label: 'Apžvalga',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.local_gas_station_outlined),
+            selectedIcon: Icon(Icons.local_gas_station),
+            label: 'Kelionė',
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
