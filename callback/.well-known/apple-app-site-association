@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "lt.almantask.budgetApp",
+        "paths": [
+          "/Budget-App/enable-banking/callback.html",
+          "/Budget-App/enable-banking/*"
+        ]
+      }
+    ]
+  }
+}

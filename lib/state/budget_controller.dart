@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../banks/bank_connector.dart';
+import '../banks/enable_banking_callback.dart';
 import '../banks/sync_scheduler.dart';
 import '../banks/sync_service.dart';
 import '../data/budget_store.dart';
@@ -62,6 +63,7 @@ class BudgetController extends ChangeNotifier {
   bool syncing = false;
   bool trendWeekly = false;
   String? statusMessage;
+  String? _handledCallbackCode;
   _ViewCache? _viewCache;
 
   Object _viewToken() {
@@ -352,6 +354,7 @@ class BudgetController extends ChangeNotifier {
         personId: owner,
         displayName: '${bank.label} sąskaita',
         enableBankingAuthorizationId: live ? session.sessionId : null,
+        enableBankingState: live ? session.state : null,
         authorizationUrl: live ? session.authorizationUrl : null,
         status: live ? AccountLinkStatus.pending : AccountLinkStatus.demo,
         lastSyncedAt: now(),
@@ -359,7 +362,7 @@ class BudgetController extends ChangeNotifier {
       state = state.copyWith(accounts: [...existing, account]);
       await _store.save(state);
       statusMessage = live
-          ? 'Patvirtinkite ${bank.label} Enable Banking sutikimą naršyklėje, tada įklijuokite grįžimo nuorodą.'
+          ? 'Patvirtinkite ${bank.label} Enable Banking sutikimą naršyklėje. Po to programėlė turėtų atsidaryti pati.'
           : '${bank.label} susietas demo režimu. Įveskite Enable Banking raktus gyvam PSD2.';
       notifyListeners();
       if (!live) return null;
@@ -369,6 +372,47 @@ class BudgetController extends ChangeNotifier {
       notifyListeners();
       return null;
     }
+  }
+
+  Future<void> handleEnableBankingCallback(Uri uri) async {
+    if (!EnableBankingCallback.isCallback(uri)) return;
+    final error = EnableBankingCallback.errorMessage(uri);
+    if (error != null) {
+      statusMessage = 'Enable Banking sutikimas atmestas: $error';
+      notifyListeners();
+      return;
+    }
+    final code = EnableBankingCallback.authorizationCode(uri);
+    if (code == null) return;
+    if (_handledCallbackCode == code) return;
+    _handledCallbackCode = code;
+
+    final oauthState = EnableBankingCallback.oauthState(uri);
+    BankId? bank;
+    if (oauthState != null) {
+      for (final account in state.accounts) {
+        if (account.enableBankingState == oauthState) {
+          bank = account.bank;
+          break;
+        }
+      }
+    }
+    bank ??= _singlePendingBank();
+    if (bank == null) {
+      statusMessage =
+          'Gautas Enable Banking kodas, bet nėra laukiančio banko. Bankai skiltyje įklijuokite nuorodą.';
+      notifyListeners();
+      return;
+    }
+    await completeBankLink(bank, uri.toString());
+  }
+
+  BankId? _singlePendingBank() {
+    final pending = state.accounts
+        .where((account) => account.status == AccountLinkStatus.pending)
+        .toList();
+    if (pending.length == 1) return pending.first.bank;
+    return null;
   }
 
   Future<void> completeBankLink(BankId bank, String callbackOrCode) async {

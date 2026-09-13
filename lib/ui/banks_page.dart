@@ -237,7 +237,8 @@ Future<void> _pasteCallback(BuildContext context, BankId bank) async {
           maxLines: 4,
           decoration: const InputDecoration(
             labelText: 'Enable Banking callback URL arba code',
-            hintText: 'budgetapp://enable-banking/callback?code=…',
+            hintText:
+                'https://almantask.github.io/Budget-App/enable-banking/callback.html?code=…',
           ),
         ),
         actions: [

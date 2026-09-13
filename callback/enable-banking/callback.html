@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Šeimos biudžetas — banko sutikimas</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #14221f; background: #eef3f1; }
+    body { max-width: 32rem; margin: 2.5rem auto; padding: 0 1.2rem; line-height: 1.45; }
+    h1 { font-size: 1.35rem; }
+    .card { background: #fff; border-radius: 12px; padding: 1.1rem 1.15rem; box-shadow: 0 1px 4px rgb(20 40 35 / 8%); }
+    .ok { color: #0f6b5c; }
+    .err { color: #9b2c2c; }
+    button, .btn {
+      display: inline-block; margin: 0.35rem 0.35rem 0 0; padding: 0.55rem 0.9rem;
+      border: 0; border-radius: 8px; background: #1b7a6a; color: #fff; font: inherit; cursor: pointer;
+      text-decoration: none;
+    }
+    button.secondary { background: #d7e4e0; color: #14221f; }
+    code { font-family: ui-monospace, monospace; word-break: break-all; }
+    .muted { color: #5b6e69; font-size: 0.92rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Enable Banking sutikimas</h1>
+    <p id="status">Tikrinama grįžimo nuoroda…</p>
+    <p id="code-wrap" hidden>Kodas: <code id="code"></code></p>
+    <p>
+      <a class="btn" id="open-app" hidden href="#">Atidaryti programėlę</a>
+      <button class="secondary" id="copy" type="button" hidden>Kopijuoti nuorodą</button>
+    </p>
+    <p class="muted">Jei programėlė neatsidaro, nukopijuokite nuorodą ir Bankai skiltyje pasirinkite „Įklijuoti sutikimo nuorodą“.</p>
+  </div>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const code = params.get('code') || hash.get('code');
+      const state = params.get('state') || hash.get('state');
+      const error = params.get('error') || hash.get('error');
+      const errorDescription = params.get('error_description') || hash.get('error_description');
+      const status = document.getElementById('status');
+      const openApp = document.getElementById('open-app');
+      const copy = document.getElementById('copy');
+      const codeWrap = document.getElementById('code-wrap');
+      const codeEl = document.getElementById('code');
+
+      if (error) {
+        status.className = 'err';
+        status.textContent = 'Sutikimas nepavyko: ' + error + (errorDescription ? ' — ' + errorDescription : '');
+        return;
+      }
+
+      if (!code) {
+        status.textContent = 'Laukiama Enable Banking grįžimo (?code=). Šį HTTPS adresą įrašykite kaip Allowed Redirect URL.';
+        return;
+      }
+
+      const appUrl = new URL('budgetapp://enable-banking/callback');
+      appUrl.searchParams.set('code', code);
+      if (state) appUrl.searchParams.set('state', state);
+
+      status.className = 'ok';
+      status.textContent = 'Sutikimas gautas. Atidaroma programėlė…';
+      codeEl.textContent = code;
+      codeWrap.hidden = false;
+      openApp.hidden = false;
+      openApp.href = appUrl.toString();
+      copy.hidden = false;
+      copy.addEventListener('click', async function () {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          copy.textContent = 'Nukopijuota';
+        } catch (_) {
+          copy.textContent = 'Nepavyko kopijuoti';
+        }
+      });
+      window.location.href = appUrl.toString();
+    })();
+  </script>
+</body>
+</html>
