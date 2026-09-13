@@ -1,0 +1,28 @@
+name: Enable Banking callback site
+
+on:
+  push:
+    paths:
+      - "callback/**"
+      - ".github/workflows/callback-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: callback-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Publish GitHub Pages callback
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish callback/ to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./callback
+          force_orphan: true

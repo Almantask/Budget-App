@@ -104,6 +104,7 @@ class EnableBankingClient {
     final resolved = aspsp ??
         await lookupAspsp(credentials: credentials, bank: bank);
     final validUntil = _consentValidUntil(resolved);
+    final state = _stateFactory();
     final response = await _http.post(
       Uri.parse('$baseUrl/auth'),
       headers: _headers(credentials),
@@ -117,7 +118,7 @@ class EnableBankingClient {
           'name': resolved.name,
           'country': resolved.country,
         },
-        'state': _stateFactory(),
+        'state': state,
         'redirect_url': redirectUri,
         'psu_type': 'personal',
         'language': 'lt',
@@ -128,6 +129,7 @@ class EnableBankingClient {
     return BankAuthSession(
       sessionId: body['authorization_id'] as String,
       authorizationUrl: body['url'] as String,
+      state: state,
     );
   }
 

@@ -10,6 +10,7 @@ class ConnectedAccount {
     this.enableBankingAuthorizationId,
     this.enableBankingSessionId,
     this.enableBankingAccountId,
+    this.enableBankingState,
     this.authorizationUrl,
     this.lastSyncedAt,
     this.status = AccountLinkStatus.disconnected,
@@ -23,6 +24,7 @@ class ConnectedAccount {
   final String? enableBankingAuthorizationId;
   final String? enableBankingSessionId;
   final String? enableBankingAccountId;
+  final String? enableBankingState;
   final String? authorizationUrl;
   final DateTime? lastSyncedAt;
   final AccountLinkStatus status;
@@ -38,6 +40,7 @@ class ConnectedAccount {
     String? enableBankingAuthorizationId,
     String? enableBankingSessionId,
     String? enableBankingAccountId,
+    String? enableBankingState,
     String? authorizationUrl,
     DateTime? lastSyncedAt,
     AccountLinkStatus? status,
@@ -54,6 +57,7 @@ class ConnectedAccount {
           enableBankingSessionId ?? this.enableBankingSessionId,
       enableBankingAccountId:
           enableBankingAccountId ?? this.enableBankingAccountId,
+      enableBankingState: enableBankingState ?? this.enableBankingState,
       authorizationUrl: authorizationUrl ?? this.authorizationUrl,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
       status: status ?? this.status,
@@ -69,6 +73,7 @@ class ConnectedAccount {
         'enableBankingAuthorizationId': enableBankingAuthorizationId,
         'enableBankingSessionId': enableBankingSessionId,
         'enableBankingAccountId': enableBankingAccountId,
+        'enableBankingState': enableBankingState,
         'authorizationUrl': authorizationUrl,
         'lastSyncedAt': lastSyncedAt?.toIso8601String(),
         'status': status.name,
@@ -87,6 +92,7 @@ class ConnectedAccount {
             json['gocardlessRequisitionId'] as String?,
         enableBankingAccountId: json['enableBankingAccountId'] as String? ??
             json['gocardlessAccountId'] as String?,
+        enableBankingState: json['enableBankingState'] as String?,
         authorizationUrl: json['authorizationUrl'] as String?,
         lastSyncedAt: json['lastSyncedAt'] == null
             ? null

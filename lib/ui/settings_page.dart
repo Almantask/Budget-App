@@ -109,7 +109,7 @@ class _SettingsPageState extends State<SettingsPage> {
         Text('Bankų raktai', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
         const Text(
-          'Enable Banking (PSD2) sujungia Artea, Revolut, Swedbank ir Wise be slaptažodžių. Application ID ir RSA raktas lieka tik šiame įrenginyje. Redirect URL turi sutapti su Enable Banking valdymo skydelyje.',
+          'Enable Banking (PSD2) sujungia Artea, Revolut, Swedbank ir Wise be slaptažodžių. Application ID ir RSA raktas lieka tik šiame įrenginyje. HTTPS Redirect URL turi sutapti su Allowed Redirect URLs valdymo skydelyje.',
         ),
         const SizedBox(height: 8),
         TextField(
@@ -133,6 +133,8 @@ class _SettingsPageState extends State<SettingsPage> {
           controller: _redirectUri,
           decoration: const InputDecoration(
             labelText: 'Enable Banking redirect URL',
+            helperText:
+                'Šį HTTPS adresą įrašykite Enable Banking Allowed Redirect URLs.',
           ),
         ),
         const SizedBox(height: 8),

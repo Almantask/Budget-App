@@ -1,5 +1,6 @@
 import '../models/bank.dart';
 import '../models/transaction.dart';
+import 'enable_banking_callback.dart';
 
 class BankSyncResult {
   const BankSyncResult({
@@ -46,11 +47,15 @@ class BankAuthSession {
   const BankAuthSession({
     required this.sessionId,
     required this.authorizationUrl,
+    this.state,
   });
 
   /// Enable Banking authorization_id until the PSU callback is exchanged.
   final String sessionId;
   final String authorizationUrl;
+
+  /// OAuth `state` sent to Enable Banking and returned on the HTTPS callback.
+  final String? state;
 }
 
 class EnableBankingLinkedSession {
@@ -100,7 +105,7 @@ class BankCredentials {
 
   final String? wiseApiToken;
 
-  static const defaultRedirectUri = 'budgetapp://enable-banking/callback';
+  static const defaultRedirectUri = EnableBankingCallback.hostedRedirectUri;
 
   bool get hasEnableBanking =>
       (enableBankingApplicationId?.isNotEmpty ?? false) &&

@@ -31,8 +31,12 @@ Pirmą kartą įkeliami demo šeimos duomenys, kad iškart matytumėte apžvalg�
 
 1. Užsiregistruokite [Enable Banking](https://enablebanking.com/) ir įkelkite RSA sertifikatą — gausite application ID.
 2. Nustatymuose įrašykite application ID ir privatų RSA raktą (PEM). Jie lieka įrenginyje.
-3. Redirect URL turi būti pridėtas Enable Banking valdymo skydelyje. Numatytoji reikšmė: `budgetapp://enable-banking/callback`.
-4. Bankų skiltyje spauskite **Susieti per Open Banking**, patvirtinkite banke, tada įklijuokite grįžimo nuorodą su `code`.
+3. Enable Banking **Allowed Redirect URLs** įrašykite HTTPS callback (numatytasis):
+
+   `https://almantask.github.io/Budget-App/enable-banking/callback.html`
+
+   Tas pats adresas turi būti ir programėlės nustatymuose. Po merge GitHub Actions publikuoja šį puslapį į `gh-pages` — repo Settings → Pages pasirinkite šaką `gh-pages`.
+4. Bankų skiltyje spauskite **Susieti per Open Banking**, patvirtinkite banke. Callback puslapis atidarys programėlę su `code`; jei ne — įklijuokite grįžimo nuorodą.
 5. Wise papildomai priima asmeninį API token.
 
 Be raktų veikia demo sync ir CSV importas iš banko išrašų.

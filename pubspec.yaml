@@ -41,10 +41,13 @@ dependencies:
   file_picker: ^12.3.0
   share_plus: ^13.3.0
   url_launcher: ^6.3.2
+  app_links: ^6.4.1
   uuid: ^4.6.0
   collection: ^1.19.1
   dart_jsonwebtoken: ^3.3.1
   path_provider: ^2.1.6
+  flutter_web_plugins:
+    sdk: flutter
   flutter_localizations:
     sdk: flutter
   workmanager: ^0.10.10

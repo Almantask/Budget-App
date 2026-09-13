@@ -1,17 +1,23 @@
 import 'dart:convert';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:budget_app/banks/bank_connector.dart';
+import 'package:budget_app/banks/enable_banking_callback.dart';
 import 'package:budget_app/banks/enable_banking_client.dart';
+import 'package:budget_app/banks/sync_scheduler.dart';
 import 'package:budget_app/banks/sync_service.dart';
+import 'package:budget_app/data/budget_store.dart';
 import 'package:budget_app/models/bank.dart';
 import 'package:budget_app/models/connected_account.dart';
 import 'package:budget_app/models/person.dart';
 import 'package:budget_app/models/spend_tag.dart';
 import 'package:budget_app/models/transaction.dart';
+import 'package:budget_app/state/budget_controller.dart';
 
 const _testPrivateKey = '''
 -----BEGIN PRIVATE KEY-----
@@ -137,7 +143,8 @@ void main() {
         expect(request.url.path, endsWith('/auth'));
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         expect(body['aspsp'], {'name': 'Swedbank', 'country': 'LT'});
-        expect(body['redirect_url'], 'budgetapp://enable-banking/callback');
+        expect(body['redirect_url'], EnableBankingCallback.hostedRedirectUri);
+        expect(body['state'], 'state-1');
         expect(body['psu_type'], 'personal');
         expect((body['access'] as Map)['transactions'], isTrue);
         return http.Response(
@@ -155,6 +162,7 @@ void main() {
       redirectUri: BankCredentials.defaultRedirectUri,
     );
     expect(session.sessionId, 'auth-1');
+    expect(session.state, 'state-1');
     expect(session.authorizationUrl, contains('auth.enablebanking.com'));
   });
 
@@ -191,6 +199,19 @@ void main() {
 
   test('extractAuthorizationCode keeps a bare code', () {
     expect(EnableBankingClient.extractAuthorizationCode('abc'), 'abc');
+  });
+
+  test('HTTPS GitHub Pages callback URL is parsed', () {
+    final uri = Uri.parse(
+      '${EnableBankingCallback.hostedRedirectUri}?code=auth-code&state=state-1',
+    );
+    expect(EnableBankingCallback.isCallback(uri), isTrue);
+    expect(EnableBankingCallback.authorizationCode(uri), 'auth-code');
+    expect(EnableBankingCallback.oauthState(uri), 'state-1');
+    expect(
+      EnableBankingClient.extractAuthorizationCode(uri.toString()),
+      'auth-code',
+    );
   });
 
   test('signs Enable Banking JWT with kid and RS256', () {
@@ -245,4 +266,81 @@ void main() {
     final merged = deduper.merge([a], [copy, a.copyWith()]);
     expect(merged, hasLength(1));
   });
+
+  test('HTTPS callback completes the pending Enable Banking session', () async {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
+    final client = _client(
+      MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.endsWith('/sessions')) {
+          expect(jsonDecode(request.body), {'code': 'auth-code'});
+          return http.Response(
+            jsonEncode({
+              'session_id': 'sess-1',
+              'accounts': [
+                {
+                  'uid': 'acc-uuid',
+                  'name': 'Einamoji',
+                  'account_id': {'iban': 'LT123'},
+                }
+              ],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.contains('/sessions/sess-1')) {
+          return http.Response(
+            jsonEncode({
+              'accounts': ['acc-uuid'],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.contains('/transactions')) {
+          return http.Response(jsonEncode({'transactions': []}), 200);
+        }
+        return http.Response('unexpected ${request.url}', 404);
+      }),
+    );
+    final controller = BudgetController(
+      store: BudgetStore(),
+      syncService: BankSyncService(enableBanking: client),
+      scheduler: const _NoopScheduler(),
+      now: () => DateTime(2026, 9, 12, 12),
+    );
+    controller.credentials = _credentials;
+    controller.state = controller.state.copyWith(
+      accounts: const [
+        ConnectedAccount(
+          id: 'acc-swed',
+          bank: BankId.swed,
+          personId: Person.meId,
+          displayName: 'Swedbank',
+          enableBankingState: 'state-1',
+          status: AccountLinkStatus.pending,
+        ),
+      ],
+    );
+
+    await controller.handleEnableBankingCallback(
+      Uri.parse(
+        '${EnableBankingCallback.hostedRedirectUri}?code=auth-code&state=state-1',
+      ),
+    );
+
+    final account = controller.state.accounts.single;
+    expect(account.status, AccountLinkStatus.connected);
+    expect(account.enableBankingSessionId, 'sess-1');
+    expect(account.enableBankingAccountId, 'acc-uuid');
+  });
+}
+
+class _NoopScheduler extends SyncScheduler {
+  const _NoopScheduler();
+
+  @override
+  Future<void> registerDailySync() async {}
+
+  @override
+  Future<void> cancel() async {}
 }
