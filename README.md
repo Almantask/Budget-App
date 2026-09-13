@@ -51,7 +51,11 @@ Kiekvienas push / PR:
 - Android **APK** + **AAB** artifact
 - iOS **unsigned IPA** (macOS runner, `--no-codesign`)
 
-Artifactus rasite GitHub Actions job išklotinėje. Release APK CI pasirašo debug raktu, kad failą būtų galima įsirašyti į telefoną. Store / TestFlight leidybai reikės jūsų keystore ir Apple sertifikatų.
+Artifactus rasite GitHub Actions job išklotinėje. Release APK CI pasirašo **pastoviu sideload raktu** (`android/sideload.keystore`) ir kiekvienam buildui didina `versionCode`, todėl naują APK galima įdiegti ant senos versijos.
+
+Jei telefonas sako, kad atnaujinimas nesuderinamas su dabartine programėle, senasis APK buvo pasirašytas kitu (ephemeriniu debug) raktu. Pašalinkite seną programėlę **vieną kartą**, įdiekite naują APK, ir tolesni atnaujinimai veiks be šalinimo. Bankų raktai po šalinimo dingsta — reikės įvesti iš naujo.
+
+Store / TestFlight leidybai reikės jūsų privataus keystore ir Apple sertifikatų — sideload raktas tam netinka.
 
 ## Struktūra
 

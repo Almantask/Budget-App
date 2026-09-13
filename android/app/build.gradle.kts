@@ -4,6 +4,10 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Stable sideload cert so CI/local release APKs can update each other.
+// Play Store publishing should replace this with a private upload keystore.
+val sideloadKeystore = rootProject.file("sideload.keystore")
+
 android {
     namespace = "lt.almantask.budget_app"
     compileSdk = flutter.compileSdkVersion
@@ -29,11 +33,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("sideload") {
+            storeFile = sideloadKeystore
+            storePassword = "seimos-biudzetas-sideload"
+            keyAlias = "sideload"
+            keyPassword = "seimos-biudzetas-sideload"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (sideloadKeystore.exists()) {
+                signingConfigs.getByName("sideload")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
