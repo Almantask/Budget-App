@@ -39,15 +39,20 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Confirm sideload keystore
+        run: test -f android/sideload.keystore
       - name: Build release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --build-number ${{ github.run_number }} --build-name 1.0.${{ github.run_number }}
       - name: Build App Bundle
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --build-number ${{ github.run_number }} --build-name 1.0.${{ github.run_number }}
+      - name: Name APK with version
+        run: cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/biudzetas-1.0.${{ github.run_number }}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: |
             build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/biudzetas-1.0.${{ github.run_number }}.apk
             build/app/outputs/bundle/release/app-release.aab
 
   ios:
