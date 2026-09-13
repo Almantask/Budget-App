@@ -45,6 +45,8 @@ class BanksPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        const _BankingModeBanner(),
+        const SizedBox(height: 16),
         for (final bank in BankId.values)
           _BankCard(
             bank: bank,
@@ -123,6 +125,7 @@ class _BankCard extends StatelessWidget {
               bank: bank,
               account: account,
               status: status,
+              liveKeys: controller.credentials.hasEnableBanking,
             ),
           ],
         ),
@@ -138,16 +141,76 @@ class _BankCard extends StatelessWidget {
       };
 }
 
+class _BankingModeBanner extends StatelessWidget {
+  const _BankingModeBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<BudgetController>();
+    final liveKeys = controller.credentials.hasEnableBanking;
+    final connected = controller.state.accounts
+        .any((account) => account.status == AccountLinkStatus.connected);
+    final scheme = Theme.of(context).colorScheme;
+    final IconData icon;
+    final String title;
+    final String body;
+    final Color color;
+    if (!liveKeys) {
+      icon = Icons.vpn_key_off_outlined;
+      title = 'Demo režimas';
+      body =
+          'Nustatymuose įrašykite Enable Banking application ID ir privatų raktą (.pem su BEGIN PRIVATE KEY). Tada čia kiekvienam bankui spauskite „Susieti tikrą banką“.';
+      color = scheme.error;
+    } else if (!connected) {
+      icon = Icons.link;
+      title = 'Raktai įkelti — susiekite bankus';
+      body =
+          'Kiekvienam bankui spauskite „Susieti tikrą banką“ ir patvirtinkite sutikimą naršyklėje. Demo operacijos bus pakeistos tikromis po sėkmingo ryšio.';
+      color = scheme.primary;
+    } else {
+      icon = Icons.verified_outlined;
+      title = 'Tikras Enable Banking';
+      body =
+          'Prijungtos sąskaitos sinchronizuojamos iš banko. Jei vis dar matote senus demo įrašus, susiekite likusius bankus.';
+      color = scheme.primary;
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(body),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BankActions extends StatelessWidget {
   const _BankActions({
     required this.bank,
     required this.account,
     required this.status,
+    required this.liveKeys,
   });
 
   final BankId bank;
   final ConnectedAccount? account;
   final AccountLinkStatus status;
+  final bool liveKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -164,11 +227,7 @@ class _BankActions extends StatelessWidget {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
           }
         },
-        child: Text(
-          status == AccountLinkStatus.disconnected
-              ? 'Susieti per Open Banking'
-              : 'Perjungti ryšį',
-        ),
+        child: Text(_linkButtonLabel()),
       ),
       if (status == AccountLinkStatus.pending) ...[
         if (account?.authorizationUrl != null)
@@ -220,6 +279,16 @@ class _BankActions extends StatelessWidget {
       );
     }
     return Wrap(spacing: 8, runSpacing: 8, children: children);
+  }
+
+  String _linkButtonLabel() {
+    if (status == AccountLinkStatus.pending) return 'Atnaujinti sutikimą';
+    if (status == AccountLinkStatus.connected) return 'Perjungti ryšį';
+    if (liveKeys) return 'Susieti tikrą banką';
+    if (status == AccountLinkStatus.disconnected) {
+      return 'Susieti per Open Banking';
+    }
+    return 'Perjungti ryšį';
   }
 }
 

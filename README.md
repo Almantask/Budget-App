@@ -25,21 +25,23 @@ flutter test
 flutter run
 ```
 
-Pirmą kartą įkeliami demo šeimos duomenys, kad iškart matytumėte apžvalgą.
+Pirmą kartą įkeliami demo šeimos duomenys, kad iškart matytumėte apžvalgą. **Raktai vieni savaime demo režimo neišjungia** — kiekvieną banką reikia susieti atskirai.
 
 ## Tikri bankai (PSD2)
 
-1. Užsiregistruokite [Enable Banking](https://enablebanking.com/) ir įkelkite RSA sertifikatą — gausite application ID.
-2. Nustatymuose įrašykite application ID ir privatų RSA raktą (PEM). Jie lieka įrenginyje.
+1. Užsiregistruokite [Enable Banking](https://enablebanking.com/) ir įkelkite RSA **sertifikatą** (`.crt`) — gausite application ID. Atsisiųskite ir **privatų raktą** `{application-id}.pem`.
+2. Nustatymuose įrašykite:
+   - **application ID** (tik ID, be `.pem` pabaigos)
+   - visą privatų PEM raktą, kuris prasideda `-----BEGIN PRIVATE KEY-----` arba `-----BEGIN RSA PRIVATE KEY-----` — **ne** `.crt` sertifikatą
 3. Enable Banking **Allowed Redirect URLs** įrašykite HTTPS callback (numatytasis):
 
    `https://almantask.github.io/Budget-App/enable-banking/callback.html`
 
    Tas pats adresas turi būti ir programėlės nustatymuose. Po merge GitHub Actions publikuoja šį puslapį į `gh-pages` — repo Settings → Pages pasirinkite šaką `gh-pages`.
-4. Bankų skiltyje spauskite **Susieti per Open Banking**, patvirtinkite banke. Callback puslapis atidarys programėlę su `code`; jei ne — įklijuokite grįžimo nuorodą.
+4. Išsaugojus raktus, programėlė išeina iš demo sąskaitų. **Bankai** skiltyje kiekvienam bankui (Artea, Revolut, Swedbank, Wise) spauskite **Susieti tikrą banką**, patvirtinkite sutikimą banke. Callback puslapis atidarys programėlę su `code`; jei ne — įklijuokite grįžimo nuorodą. Po sėkmingo ryšio to banko demo operacijos pašalinamos.
 5. Wise papildomai priima asmeninį API token.
 
-Be raktų veikia demo sync ir CSV importas iš banko išrašų.
+Be teisingo application ID **ir** privataus rakto veikia tik demo sync ir CSV importas iš banko išrašų.
 
 PSD2 sutikimai paprastai galioja ~90 dienų — tada banką reikia patvirtinti iš naujo.
 

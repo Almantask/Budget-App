@@ -47,6 +47,55 @@ class BudgetStore {
   }
 
   Future<BankCredentials> loadCredentials() async {
+    final fromSecure = await _readSecureCredentials();
+    final fromPrefs = await _readPrefsCredentials();
+    return BankCredentials(
+      enableBankingApplicationId: _prefer(
+        fromSecure.enableBankingApplicationId,
+        fromPrefs.enableBankingApplicationId,
+      ),
+      enableBankingPrivateKey: _prefer(
+        fromSecure.enableBankingPrivateKey,
+        fromPrefs.enableBankingPrivateKey,
+      ),
+      enableBankingRedirectUri: _prefer(
+        fromSecure.enableBankingRedirectUri,
+        fromPrefs.enableBankingRedirectUri,
+      ),
+      wiseApiToken: _prefer(fromSecure.wiseApiToken, fromPrefs.wiseApiToken),
+    ).normalized();
+  }
+
+  Future<void> saveCredentials(BankCredentials credentials) async {
+    final next = credentials.normalized();
+    var stored = false;
+    Object? lastError;
+    try {
+      await _writeOrDelete(
+        _applicationIdKey,
+        next.enableBankingApplicationId,
+      );
+      await _writeOrDelete(_privateKeyKey, next.enableBankingPrivateKey);
+      await _writeOrDelete(_redirectUriKey, next.enableBankingRedirectUri);
+      await _writeOrDelete(_wiseKey, next.wiseApiToken);
+      stored = true;
+    } catch (error) {
+      lastError = error;
+    }
+    try {
+      await _writePrefsCredentials(next);
+      stored = true;
+    } catch (error) {
+      lastError = error;
+    }
+    if (!stored) {
+      throw StateError(
+        'Nepavyko išsaugoti Enable Banking raktų: $lastError',
+      );
+    }
+  }
+
+  Future<BankCredentials> _readSecureCredentials() async {
     try {
       return BankCredentials(
         enableBankingApplicationId: await _secure.read(key: _applicationIdKey),
@@ -59,19 +108,34 @@ class BudgetStore {
     }
   }
 
-  Future<void> saveCredentials(BankCredentials credentials) async {
-    try {
-      await _writeOrDelete(
-        _applicationIdKey,
-        credentials.enableBankingApplicationId,
-      );
-      await _writeOrDelete(_privateKeyKey, credentials.enableBankingPrivateKey);
-      await _writeOrDelete(
-        _redirectUriKey,
-        credentials.enableBankingRedirectUri,
-      );
-      await _writeOrDelete(_wiseKey, credentials.wiseApiToken);
-    } catch (_) {}
+  Future<BankCredentials> _readPrefsCredentials() async {
+    final prefs = await _ensurePrefs();
+    return BankCredentials(
+      enableBankingApplicationId: prefs.getString(_applicationIdKey),
+      enableBankingPrivateKey: prefs.getString(_privateKeyKey),
+      enableBankingRedirectUri: prefs.getString(_redirectUriKey),
+      wiseApiToken: prefs.getString(_wiseKey),
+    );
+  }
+
+  Future<void> _writePrefsCredentials(BankCredentials credentials) async {
+    final prefs = await _ensurePrefs();
+    await _writePrefsOrDelete(
+      prefs,
+      _applicationIdKey,
+      credentials.enableBankingApplicationId,
+    );
+    await _writePrefsOrDelete(
+      prefs,
+      _privateKeyKey,
+      credentials.enableBankingPrivateKey,
+    );
+    await _writePrefsOrDelete(
+      prefs,
+      _redirectUriKey,
+      credentials.enableBankingRedirectUri,
+    );
+    await _writePrefsOrDelete(prefs, _wiseKey, credentials.wiseApiToken);
   }
 
   Future<void> _writeOrDelete(String key, String? value) async {
@@ -80,6 +144,24 @@ class BudgetStore {
     } else {
       await _secure.write(key: key, value: value);
     }
+  }
+
+  Future<void> _writePrefsOrDelete(
+    SharedPreferences prefs,
+    String key,
+    String? value,
+  ) async {
+    if (value == null || value.isEmpty) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setString(key, value);
+    }
+  }
+
+  static String? _prefer(String? primary, String? fallback) {
+    if (primary != null && primary.isNotEmpty) return primary;
+    if (fallback != null && fallback.isNotEmpty) return fallback;
+    return null;
   }
 }
 

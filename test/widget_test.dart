@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:budget_app/app.dart';
+import 'package:budget_app/banks/bank_connector.dart';
 import 'package:budget_app/banks/sync_scheduler.dart';
 import 'package:budget_app/data/budget_store.dart';
 import 'package:budget_app/models/person.dart';
@@ -199,6 +200,41 @@ void main() {
     expect(find.text('Kartą į dieną auto-sync'), findsOneWidget);
     expect(find.text('Perjungti ryšį'), findsWidgets);
     expect(find.text('GoCardless'), findsNothing);
+    expect(find.text('Demo režimas'), findsWidgets);
+  });
+
+  testWidgets('live keys offer a real bank link instead of demo', (tester) async {
+    tester.view.physicalSize = const Size(400, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _controller();
+    await controller.load();
+    await controller.saveCredentials(
+      const BankCredentials(
+        enableBankingApplicationId: 'app-123',
+        enableBankingPrivateKey: '''
+-----BEGIN PRIVATE KEY-----
+MIIB
+-----END PRIVATE KEY-----
+''',
+      ),
+    );
+    await _pumpShell(tester, controller);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Bankai'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Raktai įkelti — susiekite bankus'), findsOneWidget);
+    expect(find.text('Susieti tikrą banką'), findsWidgets);
+    expect(find.text('Demo / CSV režimas'), findsNothing);
+    expect(find.text('Nesusietas'), findsWidgets);
   });
 
   testWidgets('phone portrait keeps overview readable without overflow',

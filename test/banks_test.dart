@@ -320,6 +320,34 @@ void main() {
           status: AccountLinkStatus.pending,
         ),
       ],
+      transactions: [
+        MoneyTx(
+          id: 'demo-0',
+          bookedAt: DateTime(2026, 9, 1),
+          amount: -10,
+          currency: 'EUR',
+          description: 'Demo',
+          merchant: 'Demo',
+          bank: BankId.swed,
+          personId: Person.meId,
+          categoryId: 'groceries',
+          tag: SpendTag.essential,
+          externalId: 'seed-1',
+        ),
+        MoneyTx(
+          id: 'keep-artea',
+          bookedAt: DateTime(2026, 9, 1),
+          amount: -5,
+          currency: 'EUR',
+          description: 'Keep',
+          merchant: 'Keep',
+          bank: BankId.artea,
+          personId: Person.meId,
+          categoryId: 'groceries',
+          tag: SpendTag.essential,
+          externalId: 'seed-2',
+        ),
+      ],
     );
 
     await controller.handleEnableBankingCallback(
@@ -332,6 +360,108 @@ void main() {
     expect(account.status, AccountLinkStatus.connected);
     expect(account.enableBankingSessionId, 'sess-1');
     expect(account.enableBankingAccountId, 'acc-uuid');
+    expect(
+      controller.state.transactions.where((tx) => tx.bank == BankId.swed),
+      isEmpty,
+    );
+    expect(
+      controller.state.transactions.singleWhere((tx) => tx.bank == BankId.artea).id,
+      'keep-artea',
+    );
+  });
+
+  test('normalizes pasted Enable Banking application id and PEM', () {
+    expect(
+      BankCredentials.normalizeApplicationId(' "app-123.pem" '),
+      'app-123',
+    );
+    expect(
+      BankCredentials.normalizePrivateKey(
+        r'"-----BEGIN PRIVATE KEY-----\nABC\n-----END PRIVATE KEY-----"',
+      ),
+      '-----BEGIN PRIVATE KEY-----\nABC\n-----END PRIVATE KEY-----',
+    );
+    expect(
+      const BankCredentials(
+        enableBankingApplicationId: 'app-123',
+        enableBankingPrivateKey: '''
+-----BEGIN CERTIFICATE-----
+MIIB
+-----END CERTIFICATE-----
+''',
+      ).hasEnableBanking,
+      isFalse,
+    );
+    expect(
+      BankCredentials.looksLikeCertificateOnly('''
+-----BEGIN CERTIFICATE-----
+MIIB
+-----END CERTIFICATE-----
+'''),
+      isTrue,
+    );
+    expect(_credentials.hasEnableBanking, isTrue);
+  });
+
+  test('saving a private PEM leaves demo bank accounts', () async {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
+    final controller = BudgetController(
+      store: BudgetStore(),
+      scheduler: const _NoopScheduler(),
+      now: () => DateTime(2026, 9, 12, 12),
+    );
+    await controller.load();
+    expect(
+      controller.state.accounts.every((a) => a.status == AccountLinkStatus.demo),
+      isTrue,
+    );
+
+    await controller.saveCredentials(
+      const BankCredentials(
+        enableBankingApplicationId: 'app-123.pem',
+        enableBankingPrivateKey: _testPrivateKey,
+      ),
+    );
+
+    expect(controller.credentials.enableBankingApplicationId, 'app-123');
+    expect(controller.credentials.hasEnableBanking, isTrue);
+    expect(
+      controller.state.accounts.every(
+        (a) => a.status == AccountLinkStatus.disconnected,
+      ),
+      isTrue,
+    );
+    final stored = await BudgetStore().loadCredentials();
+    expect(stored.hasEnableBanking, isTrue);
+    expect(stored.enableBankingApplicationId, 'app-123');
+  });
+
+  test('certificate paste stays in demo mode', () async {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
+    final controller = BudgetController(
+      store: BudgetStore(),
+      scheduler: const _NoopScheduler(),
+      now: () => DateTime(2026, 9, 12, 12),
+    );
+    await controller.load();
+    await controller.saveCredentials(
+      const BankCredentials(
+        enableBankingApplicationId: 'app-123',
+        enableBankingPrivateKey: '''
+-----BEGIN CERTIFICATE-----
+MIIB
+-----END CERTIFICATE-----
+''',
+      ),
+    );
+    expect(controller.credentials.hasEnableBanking, isFalse);
+    expect(
+      controller.state.accounts.every((a) => a.status == AccountLinkStatus.demo),
+      isTrue,
+    );
+    expect(controller.statusMessage, contains('privatų raktą'));
   });
 }
 

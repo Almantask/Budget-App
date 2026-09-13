@@ -264,13 +264,18 @@ class BudgetController extends ChangeNotifier {
     loading = true;
     notifyListeners();
     state = await _store.load();
-    credentials = await _store.loadCredentials();
+    credentials = (await _store.loadCredentials()).normalized();
+    final demoDisconnected = credentials.hasEnableBanking &&
+        _disconnectDemoAccountsInMemory();
     if (state.autoSyncEnabled) {
       await _scheduler.registerDailySync();
     }
     if (state.transactions.isEmpty && !state.demoLoaded) {
       await loadDemoData();
     } else {
+      if (demoDisconnected) {
+        await _store.save(state);
+      }
       await maybeDailySync();
     }
     loading = false;
@@ -280,9 +285,15 @@ class BudgetController extends ChangeNotifier {
 
   Future<void> loadDemoData() async {
     final demo = const DemoHouseholdFactory().build(now());
+    final accounts = credentials.hasEnableBanking
+        ? [
+            for (final account in demo.accounts)
+              account.copyWith(status: AccountLinkStatus.disconnected),
+          ]
+        : demo.accounts;
     state = state.copyWith(
       transactions: demo.transactions,
-      accounts: demo.accounts,
+      accounts: accounts,
       demoLoaded: true,
       lastDailySyncAt: now(),
       notices: const [],
@@ -290,8 +301,34 @@ class BudgetController extends ChangeNotifier {
       budgets: state.budgets.isEmpty ? BudgetLimit.defaults : state.budgets,
     );
     await _finishLedgerChange(
-      'Įkelti demo šeimos duomenys. Galite jungti tikrus bankus.',
+      credentials.hasEnableBanking
+          ? 'Įkelti pavyzdiniai duomenys. Bankų skiltyje spauskite „Susieti tikrą banką“.'
+          : 'Įkelti demo šeimos duomenys. Galite jungti tikrus bankus.',
     );
+  }
+
+  bool _disconnectDemoAccountsInMemory() {
+    if (!state.accounts.any((a) => a.status == AccountLinkStatus.demo)) {
+      return false;
+    }
+    state = state.copyWith(
+      accounts: [
+        for (final account in state.accounts)
+          account.status == AccountLinkStatus.demo
+              ? account.copyWith(status: AccountLinkStatus.disconnected)
+              : account,
+      ],
+    );
+    _invalidateView();
+    return true;
+  }
+
+  List<MoneyTx> _withoutDemoSamples(BankId bank) {
+    return [
+      for (final tx in state.transactions)
+        if (tx.bank != bank || !DemoHouseholdFactory.isSampleTransaction(tx))
+          tx,
+    ];
   }
 
   Future<void> maybeDailySync({bool force = false}) async {
@@ -339,6 +376,12 @@ class BudgetController extends ChangeNotifier {
 
   Future<Uri?> connectBank(BankId bank, {String? personId}) async {
     final owner = personId ?? Person.meId;
+    if (!credentials.hasEnableBanking) {
+      statusMessage =
+          'Pirmiausia Nustatymuose įrašykite Enable Banking application ID ir privatų PEM raktą (.pem su BEGIN PRIVATE KEY). Be jų programa lieka demo režime.';
+      notifyListeners();
+      return null;
+    }
     try {
       final session = await _sync.startOpenBankingLink(
         credentials: credentials,
@@ -347,25 +390,22 @@ class BudgetController extends ChangeNotifier {
         personId: owner,
       );
       final existing = state.accounts.where((a) => a.bank != bank).toList();
-      final live = credentials.hasEnableBanking;
       final account = ConnectedAccount(
         id: 'acc-${bank.name}',
         bank: bank,
         personId: owner,
         displayName: '${bank.label} sąskaita',
-        enableBankingAuthorizationId: live ? session.sessionId : null,
-        enableBankingState: live ? session.state : null,
-        authorizationUrl: live ? session.authorizationUrl : null,
-        status: live ? AccountLinkStatus.pending : AccountLinkStatus.demo,
+        enableBankingAuthorizationId: session.sessionId,
+        enableBankingState: session.state,
+        authorizationUrl: session.authorizationUrl,
+        status: AccountLinkStatus.pending,
         lastSyncedAt: now(),
       );
       state = state.copyWith(accounts: [...existing, account]);
       await _store.save(state);
-      statusMessage = live
-          ? 'Patvirtinkite ${bank.label} Enable Banking sutikimą naršyklėje. Po to programėlė turėtų atsidaryti pati.'
-          : '${bank.label} susietas demo režimu. Įveskite Enable Banking raktus gyvam PSD2.';
+      statusMessage =
+          'Patvirtinkite ${bank.label} Enable Banking sutikimą naršyklėje. Po to programėlė turėtų atsidaryti pati.';
       notifyListeners();
-      if (!live) return null;
       return Uri.parse(session.authorizationUrl);
     } catch (error) {
       statusMessage = 'Nepavyko susieti ${bank.label}: $error';
@@ -448,9 +488,13 @@ class BudgetController extends ChangeNotifier {
           ),
         );
       }
-      state = state.copyWith(accounts: accounts);
+      state = state.copyWith(
+        accounts: accounts,
+        transactions: _withoutDemoSamples(bank),
+      );
       await _store.save(state);
-      statusMessage = '${bank.label} prijungtas per Enable Banking.';
+      statusMessage =
+          '${bank.label} prijungtas per Enable Banking. Demo operacijos šiam bankui pašalintos.';
       notifyListeners();
       await syncAll(triggeredBy: '${bank.label} sinchronizacija');
     } catch (error) {
@@ -544,9 +588,29 @@ class BudgetController extends ChangeNotifier {
   }
 
   Future<void> saveCredentials(BankCredentials next) async {
-    credentials = next;
-    await _store.saveCredentials(next);
-    statusMessage = 'Bankų raktai išsaugoti įrenginyje.';
+    credentials = next.normalized();
+    try {
+      await _store.saveCredentials(credentials);
+    } catch (error) {
+      statusMessage = 'Nepavyko išsaugoti raktų: $error';
+      notifyListeners();
+      return;
+    }
+    if (credentials.hasEnableBanking) {
+      if (_disconnectDemoAccountsInMemory()) {
+        await _store.save(state);
+      }
+      statusMessage =
+          'Tikri Enable Banking raktai išsaugoti. Bankų skiltyje kiekvienam bankui spauskite „Susieti tikrą banką“.';
+    } else if (BankCredentials.looksLikeCertificateOnly(
+      next.enableBankingPrivateKey,
+    )) {
+      statusMessage =
+          'Įklijuokite privatų raktą (.pem su BEGIN PRIVATE KEY), ne sertifikatą (.crt). Programa lieka demo režime.';
+    } else {
+      statusMessage =
+          'Reikia ir application ID, ir privataus PEM rakto. Be jų programa lieka demo režime.';
+    }
     notifyListeners();
   }
 
