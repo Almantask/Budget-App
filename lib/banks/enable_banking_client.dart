@@ -34,11 +34,12 @@ class EnableBankingClient {
 
   String createJwt(BankCredentials credentials) {
     if (jwtFactory != null) return jwtFactory!(credentials);
-    final applicationId = credentials.enableBankingApplicationId?.trim() ?? '';
-    final pem = credentials.enableBankingPrivateKey?.trim() ?? '';
-    if (applicationId.isEmpty || pem.isEmpty) {
+    final normalized = credentials.normalized();
+    final applicationId = normalized.enableBankingApplicationId ?? '';
+    final pem = normalized.enableBankingPrivateKey ?? '';
+    if (applicationId.isEmpty || !BankCredentials.looksLikePrivateKey(pem)) {
       throw BankSyncException(
-        'Trūksta Enable Banking application ID arba RSA privataus rakto',
+        'Trūksta Enable Banking application ID arba RSA privataus rakto (.pem su BEGIN PRIVATE KEY, ne .crt)',
       );
     }
     final jwt = JWT(

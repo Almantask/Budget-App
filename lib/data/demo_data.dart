@@ -11,6 +11,12 @@ class DemoHouseholdFactory {
 
   final TransactionCategorizer categorizer;
 
+  static bool isSampleTransaction(MoneyTx tx) {
+    if (tx.id.startsWith('demo-')) return true;
+    final externalId = tx.externalId ?? '';
+    return externalId.startsWith('demo-') || externalId.startsWith('seed-');
+  }
+
   DemoHousehold build(DateTime now) {
     final txs = <MoneyTx>[];
     var seq = 0;

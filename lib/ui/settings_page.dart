@@ -112,10 +112,13 @@ class _SettingsPageState extends State<SettingsPage> {
           'Enable Banking (PSD2) sujungia Artea, Revolut, Swedbank ir Wise be slaptažodžių. Application ID ir RSA raktas lieka tik šiame įrenginyje. HTTPS Redirect URL turi sutapti su Allowed Redirect URLs valdymo skydelyje.',
         ),
         const SizedBox(height: 8),
+        _KeysStatus(live: controller.credentials.hasEnableBanking),
+        const SizedBox(height: 12),
         TextField(
           controller: _applicationId,
           decoration: const InputDecoration(
             labelText: 'Enable Banking application ID',
+            helperText: 'Tik application ID, be .pem pabaigos.',
           ),
         ),
         const SizedBox(height: 8),
@@ -126,6 +129,8 @@ class _SettingsPageState extends State<SettingsPage> {
           decoration: const InputDecoration(
             labelText: 'Enable Banking RSA private key (PEM)',
             alignLabelWithHint: true,
+            helperText:
+                'Visas {id}.pem, prasidedantis -----BEGIN PRIVATE KEY-----. Ne .crt sertifikatas.',
           ),
         ),
         const SizedBox(height: 8),
@@ -149,14 +154,19 @@ class _SettingsPageState extends State<SettingsPage> {
         SizedBox(
           width: double.infinity,
           child: FilledButton.tonal(
-            onPressed: () => controller.saveCredentials(
-              BankCredentials(
-                enableBankingApplicationId: _applicationId.text.trim(),
-                enableBankingPrivateKey: _privateKey.text.trim(),
-                enableBankingRedirectUri: _redirectUri.text.trim(),
-                wiseApiToken: _wise.text.trim(),
-              ),
-            ),
+            onPressed: () async {
+              final next = BankCredentials(
+                enableBankingApplicationId: _applicationId.text,
+                enableBankingPrivateKey: _privateKey.text,
+                enableBankingRedirectUri: _redirectUri.text,
+                wiseApiToken: _wise.text,
+              ).normalized();
+              _applicationId.text = next.enableBankingApplicationId ?? '';
+              _privateKey.text = next.enableBankingPrivateKey ?? '';
+              _redirectUri.text =
+                  next.enableBankingRedirectUri ?? _redirectUri.text.trim();
+              await controller.saveCredentials(next);
+            },
             child: const Text('Išsaugoti raktus'),
           ),
         ),
@@ -177,6 +187,33 @@ class _SettingsPageState extends State<SettingsPage> {
       if (budget.categoryId == categoryId) return budget;
     }
     return null;
+  }
+}
+
+class _KeysStatus extends StatelessWidget {
+  const _KeysStatus({required this.live});
+
+  final bool live;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          live ? Icons.verified_outlined : Icons.vpn_key_off_outlined,
+          color: live ? scheme.primary : scheme.error,
+        ),
+        title: Text(
+          live ? 'Tikri Enable Banking raktai įkelti' : 'Demo režimas',
+        ),
+        subtitle: Text(
+          live
+              ? 'Bankų skiltyje kiekvienam bankui spauskite „Susieti tikrą banką“ ir patvirtinkite sutikimą.'
+              : 'Be application ID ir privataus rakto (.pem su BEGIN PRIVATE KEY) programa naudoja demo duomenis.',
+        ),
+      ),
+    );
   }
 }
 
